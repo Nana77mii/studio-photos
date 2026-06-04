@@ -77,13 +77,20 @@ body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
 
 /* ── Gallery ── */
 .gallery-card { overflow:hidden; position:relative; cursor:pointer; }
-.gallery-img { transition:transform 0.6s cubic-bezier(0.175,0.885,0.32,1.275), opacity 0.3s; }
+.gallery-img { transition:transform 0.6s cubic-bezier(0.175,0.885,0.32,1.275), opacity 0.3s; display:block; width:100%; height:auto; max-width:100%; }
 .gallery-card:hover .gallery-img { transform:scale(1.04); opacity:.85; }
 .gallery-overlay {
   background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0) 100%);
   opacity:0; transition:opacity 0.4s;
 }
 .gallery-card:hover .gallery-overlay { opacity:1; }
+
+/* ── Photo Grid (mobile-first, avoids relying on Tailwind for JS-injected classes) ── */
+.photo-grid { width:100%; column-gap:1.25rem; columns:1; overflow:hidden; }
+@media (min-width:640px) { .photo-grid { columns:2; } }
+.photo-grid .gallery-card { break-inside:avoid; margin-bottom:1.25rem; max-width:100%; }
+.photo-grid-single { width:100%; max-width:32rem; }
+@media (max-width:639px) { .photo-grid-single { max-width:100%; } }
 
 .ghost-border { border:1px solid rgba(255,255,255,0.08); }
 
@@ -204,7 +211,7 @@ body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
 
   <!-- Timeline -->
   <section id="timeline-section" class="py-16 md:py-40 bg-[#141313]">
-    <div id="timeline-container" class="px-6 md:px-20">
+    <div id="timeline-container" class="px-6 md:px-20 overflow-x-hidden">
       <div class="text-center text-on-surface-variant py-20 text-sm tracking-widest uppercase" id="timeline-loading">
         Loading portfolio…
       </div>
@@ -1224,9 +1231,9 @@ async function loadTimeline() {
 }
 
 function renderPhotoGrid(photos) {
-  const card = (p, extra = "") => `
-    <div class="gallery-card ghost-border cursor-pointer break-inside-avoid mb-5 ${extra}" onclick="showDetail('${p.id}')">
-      <img src="${p.url}" alt="${p.location}" class="w-full h-auto block gallery-img" loading="lazy"/>
+  const card = (p) => `
+    <div class="gallery-card ghost-border cursor-pointer" onclick="showDetail('${p.id}')">
+      <img src="${p.url}" alt="${p.location}" class="gallery-img" loading="lazy"/>
       <div class="gallery-overlay absolute inset-0 flex flex-col justify-end p-5">
         <div class="photo-caption text-xs tracking-widest text-on-surface-variant flex justify-between items-end">
           <div><span class="block text-white mb-1">${p.date} / ${p.category}</span><span>${p.location}</span></div>
@@ -1236,9 +1243,9 @@ function renderPhotoGrid(photos) {
     </div>`;
 
   if (photos.length === 1) {
-    return `<div class="w-full sm:max-w-lg">${card(photos[0])}</div>`;
+    return `<div class="photo-grid-single">${card(photos[0])}</div>`;
   }
-  return `<div class="columns-1 sm:columns-2 gap-5">${photos.map(p => card(p)).join("")}</div>`;
+  return `<div class="photo-grid">${photos.map(p => card(p)).join("")}</div>`;
 }
 
 function toggleAccordion(id, header) {
