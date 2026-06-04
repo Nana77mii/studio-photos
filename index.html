@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>STUDIO | The Art of Observation</title>
+<title>Nana7mii's Echoes' In Pixels</title>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
 <script id="tailwind-config">
@@ -131,10 +131,10 @@ body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
 
 <!-- ═══════════════════════════ NAV ═══════════════════════════ -->
 <nav id="main-nav" class="fixed top-0 w-full z-50 bg-[#141313]/80 backdrop-blur-xl border-b border-white/10 flex justify-between items-center h-20 px-6 md:px-20">
-  <a onclick="showView('home')" class="text-white font-bold tracking-tighter text-lg cursor-pointer select-none">STUDIO</a>
+  <a onclick="showView('home')" class="text-white font-bold tracking-tighter text-sm cursor-pointer select-none">ECHOES' IN PIXELS</a>
   <div class="hidden md:flex items-center gap-6 text-xs tracking-widest font-semibold uppercase">
-    <a onclick="showView('home')" class="text-white border-b border-white pb-0.5 cursor-pointer">Portfolio</a>
-    <a onclick="scrollToTimeline()" class="text-on-surface-variant hover:text-white transition-colors nav-link cursor-pointer">Timeline</a>
+    <a onclick="showView('home')" class="text-white border-b border-white pb-0.5 cursor-pointer">Sanctuary</a>
+    <a onclick="showView('chronicles')" class="text-on-surface-variant hover:text-white transition-colors nav-link cursor-pointer">Chronicles</a>
     <a class="text-on-surface-variant hover:text-white transition-colors nav-link cursor-pointer">About</a>
     <a onclick="showView('admin-login')" class="text-on-surface-variant hover:text-white transition-colors nav-link cursor-pointer">Admin</a>
   </div>
@@ -155,9 +155,9 @@ body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
     </div>
     <div class="relative z-10 text-center px-6 md:px-20">
       <h1 class="text-5xl md:text-9xl font-bold tracking-[-0.04em] text-white mb-6 leading-none hero-txt" style="text-shadow:0 4px 24px rgba(0,0,0,0.5)">
-        STUDIO<br/>THE ART OF OBSERVATION
+        ECHOES'<br/>IN PIXELS
       </h1>
-      <p class="text-base text-on-surface-variant max-w-xl mx-auto hero-txt">A collection of moments captured in time.</p>
+      <p class="text-base text-on-surface-variant max-w-xl mx-auto hero-txt">by Nana7mii — a collection of moments captured in time.</p>
     </div>
   </section>
 
@@ -172,13 +172,26 @@ body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
-     VIEW 2: PHOTO DETAIL
+     VIEW 2: CHRONICLES
+═══════════════════════════════════════════════════════════ -->
+<div id="view-chronicles" class="view pt-20 min-h-screen">
+  <div class="max-w-2xl mx-auto px-6 md:px-20 py-20">
+    <p class="text-xs tracking-widest uppercase text-on-surface-variant mb-3">Chronicles</p>
+    <h2 class="text-5xl font-bold tracking-tight text-white mb-16">A Record<br/>of Places</h2>
+    <div id="chronicles-tree">
+      <p class="text-on-surface-variant text-sm tracking-widest uppercase">Loading…</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     VIEW 3: PHOTO DETAIL
 ═══════════════════════════════════════════════════════════ -->
 <div id="view-detail" class="view pt-20 min-h-screen">
   <div class="max-w-6xl mx-auto px-6 md:px-20 py-12">
     <button onclick="goBack()" class="flex items-center gap-2 text-on-surface-variant hover:text-white transition-colors text-xs tracking-widest uppercase mb-10 group">
       <span class="material-symbols-outlined text-base group-hover:-translate-x-1 transition-transform">arrow_back</span>
-      Back to Portfolio
+      Back to Sanctuary
     </button>
     <div id="detail-content" class="fade-in">
       <!-- populated by JS -->
@@ -218,7 +231,7 @@ body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
     <div class="flex justify-between items-start mb-12">
       <div>
         <p class="text-xs tracking-widest uppercase text-on-surface-variant mb-1">Admin Dashboard</p>
-        <h2 class="text-4xl font-bold tracking-tight text-white">Manage Portfolio</h2>
+        <h2 class="text-4xl font-bold tracking-tight text-white">Manage Sanctuary</h2>
       </div>
       <div class="flex items-center gap-3">
         <button onclick="showView('home')" class="btn-ghost text-xs">← View Site</button>
@@ -339,12 +352,12 @@ body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
 
 <!-- Footer -->
 <footer id="main-footer" class="bg-[#141313] w-full py-10 border-t border-white/10 flex flex-col md:flex-row justify-between items-center px-6 md:px-20 gap-4 mt-auto">
-  <a onclick="showView('home')" class="text-white text-sm cursor-pointer">STUDIO</a>
+  <a onclick="showView('home')" class="text-white text-sm cursor-pointer">ECHOES' IN PIXELS</a>
   <div class="flex gap-6 text-xs tracking-widest uppercase text-on-surface-variant">
     <a class="hover:text-white transition-colors cursor-pointer">Instagram</a>
     <a class="hover:text-white transition-colors cursor-pointer">Privacy</a>
   </div>
-  <p class="text-xs text-on-surface-variant">© 2026 STUDIO PHOTOGRAPHY. ALL RIGHTS RESERVED.</p>
+  <p class="text-xs text-on-surface-variant">© 2026 NANA7MII'S ECHOES' IN PIXELS. ALL RIGHTS RESERVED.</p>
 </footer>
 
 <script>
@@ -373,6 +386,7 @@ function showView(name) {
   const footer = document.getElementById("main-footer");
   footer.style.display = (name === "admin" || name === "admin-login") ? "none" : "";
   if (name === "home") loadTimeline();
+  if (name === "chronicles") loadChronicles();
   if (name === "admin") { loadConfig(); loadAdminGallery(); }
 }
 
@@ -380,11 +394,18 @@ function goBack() {
   showView(previousView === currentView ? "home" : previousView);
 }
 
-function scrollToTimeline() {
+function goToSanctuary(accId) {
   showView("home");
   setTimeout(() => {
-    document.getElementById("timeline-section").scrollIntoView({ behavior: "smooth" });
-  }, 100);
+    const el = document.getElementById(accId);
+    if (!el) return;
+    if (!el.classList.contains("open")) {
+      el.classList.add("open");
+      const header = el.previousElementSibling;
+      if (header) header.classList.add("open");
+    }
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, 200);
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -702,7 +723,57 @@ async function deletePhoto(id) {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   PORTFOLIO TIMELINE (Public View)
+   CHRONICLES (Tree View)
+═══════════════════════════════════════════════════════════ */
+async function loadChronicles() {
+  const container = document.getElementById("chronicles-tree");
+  if (!container) return;
+  let photos = photosCache;
+  if (photos.length === 0) {
+    const saved = JSON.parse(localStorage.getItem("gh_config") || "{}");
+    if (!saved.owner || !saved.repo) { container.innerHTML = '<p class="text-on-surface-variant/50 text-xs tracking-widest uppercase">No records yet.</p>'; return; }
+    ghConfig = saved;
+    try { photos = await readIndex(); photosCache = photos; } catch { container.innerHTML = '<p class="text-on-surface-variant/50 text-xs">Could not load records.</p>'; return; }
+  }
+  if (photos.length === 0) { container.innerHTML = '<p class="text-on-surface-variant/50 text-xs tracking-widest uppercase">No records yet.</p>'; return; }
+
+  const byYear = {};
+  photos.forEach(p => {
+    if (!byYear[p.year]) byYear[p.year] = {};
+    if (!byYear[p.year][p.location]) byYear[p.year][p.location] = [];
+    byYear[p.year][p.location].push(p);
+  });
+  const years = Object.keys(byYear).sort((a, b) => b - a);
+
+  container.innerHTML = years.map((year, yi) => {
+    const locations = Object.entries(byYear[year]);
+    return `
+      <div class="mb-16 fade-in" style="animation-delay:${yi * 0.08}s">
+        <div class="text-8xl font-bold tracking-tighter leading-none mb-8 select-none" style="color:rgba(255,255,255,0.06)">${year}</div>
+        <div class="relative pl-10 border-l border-white/10">
+          ${locations.map(([loc, lPhotos], li) => {
+            const accId = `acc-${year}-${li}`;
+            const date = lPhotos[0].date;
+            const count = lPhotos.length;
+            return `
+              <div class="relative mb-6 last:mb-0 group cursor-pointer" onclick="goToSanctuary('${accId}')">
+                <div class="absolute -left-[2.6rem] top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full border border-white/20 bg-[#141313] group-hover:border-white group-hover:bg-white transition-all duration-300"></div>
+                <div class="flex items-center justify-between py-3 border-b border-white/5 group-hover:border-white/15 transition-colors">
+                  <div class="flex items-baseline gap-3">
+                    <span class="text-white font-semibold tracking-tight group-hover:opacity-70 transition-opacity">${loc}</span>
+                    <span class="text-xs text-on-surface-variant/50">${count} ${count > 1 ? "frames" : "frame"}</span>
+                  </div>
+                  <span class="text-xs text-on-surface-variant/40 tracking-widest tabular-nums">${date}</span>
+                </div>
+              </div>`;
+          }).join("")}
+        </div>
+      </div>`;
+  }).join("");
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SANCTUARY TIMELINE (Public View)
 ═══════════════════════════════════════════════════════════ */
 async function loadTimeline() {
   const container = document.getElementById("timeline-container");
@@ -713,7 +784,7 @@ async function loadTimeline() {
   if (photos.length === 0) {
     const saved = JSON.parse(localStorage.getItem("gh_config") || "{}");
     if (!saved.owner || !saved.repo) {
-      loading.textContent = "Portfolio not connected to GitHub yet.";
+      loading.textContent = "Sanctuary not connected to GitHub yet.";
       return;
     }
     ghConfig = saved;
