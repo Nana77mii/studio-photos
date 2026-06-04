@@ -110,6 +110,10 @@ body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
 /* ── Detail page ── */
 #detail-img-wrap { max-height:85vh; }
 
+/* ── Typo rows ── */
+.typo-row:hover { background:rgba(255,255,255,0.025); border-radius:4px; }
+.typo-row.active { background:rgba(255,255,255,0.045); border-radius:4px; }
+
 /* ── Admin ── */
 .drop-zone { border:2px dashed rgba(255,255,255,0.15); transition:border-color 0.3s, background 0.3s; }
 .drop-zone.drag-over { border-color:rgba(255,255,255,0.5); background:rgba(255,255,255,0.04); }
@@ -157,6 +161,62 @@ body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
     </div>
     <div id="dl-progress" class="hidden mt-4 text-xs text-on-surface-variant flex items-center gap-2">
       <span class="material-symbols-outlined text-base animate-spin">autorenew</span> Preparing…
+    </div>
+  </div>
+</div>
+
+<!-- Edit Photo Modal -->
+<div id="edit-modal" class="fixed inset-0 z-[100] flex items-center justify-center hidden">
+  <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeEditModal()"></div>
+  <div class="relative ghost-border rounded bg-[#1a1919] p-8 w-full max-w-lg mx-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+    <button onclick="closeEditModal()" class="absolute top-4 right-4 text-on-surface-variant hover:text-white transition-colors">
+      <span class="material-symbols-outlined text-base">close</span>
+    </button>
+    <p class="text-xs tracking-widest uppercase text-on-surface-variant mb-1">Edit Photo</p>
+    <div class="flex gap-4 items-center mb-6">
+      <img id="edit-thumb" class="w-16 h-16 object-cover rounded ghost-border flex-shrink-0"/>
+      <div>
+        <p id="edit-thumb-loc" class="text-white text-sm font-medium"></p>
+        <p id="edit-thumb-date" class="text-xs text-on-surface-variant mt-0.5"></p>
+      </div>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+      <div>
+        <label class="text-xs text-on-surface-variant mb-1 block">Location</label>
+        <input id="edit-location" class="admin-input text-sm" placeholder="TOKYO, JP"/>
+      </div>
+      <div>
+        <label class="text-xs text-on-surface-variant mb-1 block">Date</label>
+        <input id="edit-date" type="date" class="admin-input text-sm"/>
+      </div>
+      <div>
+        <label class="text-xs text-on-surface-variant mb-1 block">Category</label>
+        <select id="edit-category" class="admin-select text-sm">
+          <option value="STREET">Street</option>
+          <option value="PORTRAIT">Portrait</option>
+          <option value="LANDSCAPE">Landscape</option>
+          <option value="ARCHITECTURE">Architecture</option>
+          <option value="ABSTRACT">Abstract</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs text-on-surface-variant mb-1 block">Camera</label>
+        <input id="edit-camera" class="admin-input text-sm" placeholder="LEICA M11"/>
+      </div>
+      <div class="sm:col-span-2">
+        <label class="text-xs text-on-surface-variant mb-1 block">Lens / Settings</label>
+        <input id="edit-lens" class="admin-input text-sm" placeholder="35MM f/1.4"/>
+      </div>
+      <div class="sm:col-span-2">
+        <label class="text-xs text-on-surface-variant mb-1 block">Caption / Note</label>
+        <input id="edit-caption" class="admin-input text-sm" placeholder="Optional short description…"/>
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <button id="edit-save-btn" onclick="saveEditPhoto()" class="btn-primary text-xs">Save Changes</button>
+      <div id="edit-progress" class="hidden text-xs text-on-surface-variant flex items-center gap-2">
+        <span class="material-symbols-outlined text-base animate-spin">autorenew</span> Saving…
+      </div>
     </div>
   </div>
 </div>
@@ -364,12 +424,29 @@ body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
     <!-- Typography Panel -->
     <div class="ghost-border rounded p-6 mb-8 bg-white/[0.02]">
       <p class="text-xs tracking-widest uppercase text-on-surface-variant mb-1">Typography</p>
-      <p class="text-xs text-on-surface-variant/40 mb-6">Font family &amp; size per element. Leave size blank to keep default.</p>
-      <div class="mb-2 hidden sm:grid gap-x-3 text-xs text-on-surface-variant/40 tracking-widest uppercase pb-2 border-b border-white/5" style="grid-template-columns:140px 1fr 80px 28px">
-        <span>Element</span><span>Font</span><span>Size</span><span></span>
+      <p class="text-xs text-on-surface-variant/40 mb-5">Click any row to preview live. Leave size blank to keep default.</p>
+      <div class="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6 items-start">
+        <div>
+          <div class="mb-1 hidden sm:grid gap-x-3 text-xs text-on-surface-variant/30 tracking-widest uppercase pb-2 border-b border-white/5" style="grid-template-columns:110px 1fr 68px">
+            <span>Element</span><span>Font</span><span>Size</span>
+          </div>
+          <div id="typo-rows"></div>
+          <button onclick="saveSettings()" class="btn-primary text-xs mt-5">Save Typography</button>
+        </div>
+        <!-- Live Preview Panel -->
+        <div class="lg:sticky lg:top-24">
+          <div id="typo-preview-panel" class="ghost-border rounded bg-[#0d0d0d] overflow-hidden">
+            <div class="px-4 py-2.5 border-b border-white/5 flex items-center gap-2">
+              <span class="material-symbols-outlined text-sm text-on-surface-variant/30" style="font-size:14px">visibility</span>
+              <span id="typo-preview-label" class="text-xs text-on-surface-variant/40 tracking-widest uppercase">Click a row to preview</span>
+            </div>
+            <div class="p-6 min-h-[160px] flex flex-col items-center justify-center gap-4">
+              <p id="typo-preview-text" class="text-white text-center leading-snug w-full" style="word-break:break-word; white-space:pre-wrap"></p>
+              <p id="typo-preview-meta" class="text-xs text-on-surface-variant/30 tracking-widest text-center"></p>
+            </div>
+          </div>
+        </div>
       </div>
-      <div id="typo-rows"><!-- populated by JS --></div>
-      <button onclick="saveSettings()" class="btn-primary text-xs mt-6">Save Typography</button>
     </div>
 
     <!-- Upload Panel -->
@@ -478,6 +555,7 @@ let previousView = "home";
 let ghConfig = {};
 let selectedFile = null;
 let photosCache = [];
+let editingPhotoId = null;
 
 const FONT_OPTIONS = [
   { value: "",                    label: "Default" },
@@ -851,11 +929,16 @@ async function loadAdminGallery() {
     gallery.innerHTML = photos.map(p => `
       <div class="relative group">
         <img src="${p.url}" class="photo-thumb w-full ghost-border" loading="lazy" alt="${p.location}"/>
-        <div class="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
-          <p class="text-xs text-white text-center px-1 leading-tight">${p.location}<br/><span class="text-white/50">${p.date}</span></p>
-          <button onclick="deletePhoto('${p.id}')" class="text-xs text-red-400 hover:text-red-300 transition-colors flex items-center gap-1">
-            <span class="material-symbols-outlined text-sm">delete</span> Delete
-          </button>
+        <div class="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 px-2">
+          <p class="text-xs text-white text-center leading-tight">${p.location}<br/><span class="text-white/50">${p.date}</span></p>
+          <div class="flex items-center gap-3">
+            <button onclick="openEditModal('${p.id}')" class="text-xs text-white/70 hover:text-white transition-colors flex items-center gap-0.5">
+              <span class="material-symbols-outlined text-sm">edit</span> Edit
+            </button>
+            <button onclick="deletePhoto('${p.id}')" class="text-xs text-red-400 hover:text-red-300 transition-colors flex items-center gap-0.5">
+              <span class="material-symbols-outlined text-sm">delete</span> Del
+            </button>
+          </div>
         </div>
       </div>
     `).join("");
@@ -884,6 +967,58 @@ async function deletePhoto(id) {
     loadAdminGallery();
   } catch (err) {
     showStatus("Delete failed: " + err.message, "error");
+  }
+}
+
+function openEditModal(id) {
+  const photo = photosCache.find(p => p.id === id);
+  if (!photo) return;
+  editingPhotoId = id;
+  document.getElementById("edit-thumb").src = photo.url;
+  document.getElementById("edit-thumb-loc").textContent = photo.location || "";
+  document.getElementById("edit-thumb-date").textContent = photo.date || "";
+  document.getElementById("edit-location").value = photo.location || "";
+  document.getElementById("edit-date").value = photo.date || "";
+  document.getElementById("edit-category").value = photo.category || "STREET";
+  document.getElementById("edit-camera").value = photo.camera || "";
+  document.getElementById("edit-lens").value = photo.lens || "";
+  document.getElementById("edit-caption").value = photo.caption || "";
+  document.getElementById("edit-modal").classList.remove("hidden");
+}
+
+function closeEditModal() {
+  document.getElementById("edit-modal").classList.add("hidden");
+  editingPhotoId = null;
+}
+
+async function saveEditPhoto() {
+  if (!editingPhotoId) return;
+  const location = document.getElementById("edit-location").value.trim().toUpperCase();
+  const date     = document.getElementById("edit-date").value;
+  const category = document.getElementById("edit-category").value;
+  const camera   = document.getElementById("edit-camera").value.trim();
+  const lens     = document.getElementById("edit-lens").value.trim();
+  const caption  = document.getElementById("edit-caption").value.trim();
+  if (!location || !date) { showStatus("Location and date are required.", "error"); return; }
+  const btn = document.getElementById("edit-save-btn");
+  const prog = document.getElementById("edit-progress");
+  btn.disabled = true; prog.classList.remove("hidden");
+  try {
+    const photos = await readIndex();
+    const idx = photos.findIndex(p => p.id === editingPhotoId);
+    if (idx === -1) { showStatus("Photo not found.", "error"); return; }
+    const year = date.slice(0, 4);
+    const month = date.slice(5, 7);
+    photos[idx] = { ...photos[idx], location, date, year, month, category, camera, lens, caption };
+    await writeIndex(photos);
+    photosCache = photos;
+    closeEditModal();
+    loadAdminGallery();
+    showStatus("Photo updated!", "success");
+  } catch (err) {
+    showStatus("Save failed: " + err.message, "error");
+  } finally {
+    btn.disabled = false; prog.classList.add("hidden");
   }
 }
 
@@ -971,18 +1106,19 @@ function buildTypoRows() {
   if (!container || container.children.length) return;
   const opts = FONT_OPTIONS.map(f => `<option value="${f.value}">${f.label}</option>`).join("");
   container.innerHTML = TYPO_ELEMENTS.map(({ key, label }) => `
-    <div class="grid items-center gap-x-3 gap-y-1 py-3 border-b border-white/5 last:border-0" style="grid-template-columns:140px 1fr 80px 28px">
-      <span class="text-xs text-on-surface-variant col-span-full sm:col-span-1 mb-1 sm:mb-0">${label}</span>
+    <div id="typo-row-${key}" class="typo-row grid items-center gap-x-3 gap-y-1 py-2.5 border-b border-white/5 last:border-0 cursor-pointer px-1 -mx-1 transition-colors"
+         style="grid-template-columns:110px 1fr 68px"
+         onclick="activateTypoPreview('${key}')">
+      <span class="text-xs text-on-surface-variant/70 truncate sm:whitespace-nowrap col-span-full sm:col-span-1 mb-1 sm:mb-0">${label}</span>
       <select id="typo-${key}-font" class="admin-select text-xs" onchange="onTypoChange('${key}')">
         ${opts}
       </select>
       <div class="flex items-center gap-1">
         <input id="typo-${key}-size" type="number" min="8" max="300" placeholder="auto"
-               class="admin-input text-xs text-center px-2" style="width:52px"
+               class="admin-input text-xs text-center px-1 w-full"
                oninput="onTypoChange('${key}')"/>
         <span class="text-xs text-on-surface-variant/30">px</span>
       </div>
-      <span id="typo-${key}-preview" class="text-white text-lg text-center select-none leading-none">Aa</span>
     </div>`).join("");
 }
 
@@ -1000,8 +1136,9 @@ function fillSettingsForm(s) {
     const t = typo[key] || {};
     set(`typo-${key}-font`, t.font || "");
     set(`typo-${key}-size`, t.size || "");
-    updateTypoPreview(key, t.font || "");
   });
+  // Activate the first row so preview shows immediately
+  setTimeout(() => activateTypoPreview(TYPO_ELEMENTS[0].key), 50);
 
   const thumb = document.getElementById("hero-bg-thumb");
   const empty = document.getElementById("hero-bg-thumb-empty");
@@ -1011,19 +1148,71 @@ function fillSettingsForm(s) {
   }
 }
 
-function updateTypoPreview(key, fontValue) {
-  const el = document.getElementById(`typo-${key}-preview`);
-  if (!el) return;
-  el.style.fontFamily = fontValue ? `'${fontValue}',serif` : "";
-  if (fontValue) loadGoogleFonts([fontValue]);
+let currentTypoKey = null;
+
+function getPreviewText(key) {
+  const el = TYPO_ELEMENTS.find(e => e.key === key);
+  if (!el) return "";
+  // Try to grab live content from the page
+  const sel = el.selector.split(",")[0].trim();
+  const node = document.querySelector(sel);
+  if (node) {
+    const t = node.textContent.trim().replace(/\s+/g, " ").slice(0, 120);
+    if (t.length > 2) return t;
+  }
+  // Fallback: use photosCache for location/caption
+  if (key === "locationHead" && photosCache.length > 0)
+    return photosCache[0].location || "BEIJING, CHN";
+  if (key === "photoCaption" && photosCache.length > 0) {
+    const p = photosCache[0];
+    return `${p.date} / ${p.category}`;
+  }
+  const samples = {
+    heroTitle:    "ECHOES'\nIN PIXELS",
+    heroSub:      "by Nana7mii — a collection of moments captured in time.",
+    siteName:     "ECHOES' IN PIXELS",
+    navLinks:     "Sanctuary · Chronicles",
+    yearLabel:    "2026",
+    locationHead: "BEIJING, CHN",
+    photoCaption: "2026-05-16 / ARCHITECTURE",
+    bodyText:     "A curated collection of moments across places and seasons.",
+  };
+  return samples[key] || "Preview";
+}
+
+function activateTypoPreview(key) {
+  document.querySelectorAll(".typo-row").forEach(r => r.classList.remove("active"));
+  const row = document.getElementById(`typo-row-${key}`);
+  if (row) row.classList.add("active");
+  currentTypoKey = key;
+
+  const el = TYPO_ELEMENTS.find(e => e.key === key);
+  const font = document.getElementById(`typo-${key}-font`)?.value || "";
+  const size = document.getElementById(`typo-${key}-size`)?.value || "";
+
+  const label  = document.getElementById("typo-preview-label");
+  const text   = document.getElementById("typo-preview-text");
+  const meta   = document.getElementById("typo-preview-meta");
+
+  if (!text) return;
+  if (label) label.textContent = el ? el.label : key;
+  text.textContent = getPreviewText(key);
+  text.style.fontFamily = font ? `'${font}',serif` : "";
+  text.style.fontSize   = size ? `${size}px` : "";
+  if (meta) meta.textContent = [font || "Default font", size ? `${size}px` : "Default size"].join(" · ");
+  if (font) loadGoogleFonts([font]);
+}
+
+function updateTypoPreview(key) {
+  if (key === currentTypoKey) activateTypoPreview(key);
 }
 
 function onTypoChange(key) {
   const font = document.getElementById(`typo-${key}-font`)?.value || "";
   const size = document.getElementById(`typo-${key}-size`)?.value || "";
-  updateTypoPreview(key, font);
   siteSettings = { ...siteSettings, typography: { ...(siteSettings.typography || {}), [key]: { font, size } } };
   applyFontSettings(siteSettings);
+  activateTypoPreview(key);
 }
 
 function previewHeroBg(e) {
