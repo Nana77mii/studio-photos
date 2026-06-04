@@ -772,34 +772,21 @@ async function loadTimeline() {
 }
 
 function renderPhotoGrid(photos) {
+  const card = (p, extra = "") => `
+    <div class="gallery-card ghost-border cursor-pointer break-inside-avoid mb-5 ${extra}" onclick="showDetail('${p.id}')">
+      <img src="${p.url}" alt="${p.location}" class="w-full h-auto block gallery-img" loading="lazy"/>
+      <div class="gallery-overlay absolute inset-0 flex flex-col justify-end p-5">
+        <div class="text-xs tracking-widest text-on-surface-variant flex justify-between items-end">
+          <div><span class="block text-white mb-1">${p.date} / ${p.category}</span><span>${p.location}</span></div>
+          <div class="text-right opacity-80"><span class="block">${p.camera||""}</span><span>${p.lens||""}</span></div>
+        </div>
+      </div>
+    </div>`;
+
   if (photos.length === 1) {
-    // Full width landscape
-    const p = photos[0];
-    return `
-      <div class="w-screen relative left-1/2 -translate-x-1/2 gallery-card aspect-video cursor-pointer"
-           onclick="showDetail('${p.id}')">
-        <img src="${p.url}" alt="${p.location}" class="w-full h-full object-cover gallery-img" loading="lazy"/>
-        <div class="gallery-overlay absolute inset-0 flex flex-col justify-end p-12">
-          <div class="text-xs tracking-widest text-on-surface-variant flex justify-between items-end max-w-7xl mx-auto w-full">
-            <div><span class="block text-white mb-1 text-base">${p.date} / ${p.category}</span><span>${p.location}</span></div>
-            <div class="text-right opacity-80"><span class="block">${p.camera||""}</span><span>${p.lens||""}</span></div>
-          </div>
-        </div>
-      </div>`;
+    return `<div class="max-w-xl">${card(photos[0])}</div>`;
   }
-  // 2-col portrait grid
-  return `<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-    ${photos.map(p => `
-      <div class="gallery-card ghost-border aspect-[3/4] cursor-pointer" onclick="showDetail('${p.id}')">
-        <img src="${p.url}" alt="${p.location}" class="w-full h-full object-cover gallery-img" loading="lazy"/>
-        <div class="gallery-overlay absolute inset-0 flex flex-col justify-end p-6">
-          <div class="text-xs tracking-widest text-on-surface-variant flex justify-between items-end">
-            <div><span class="block text-white mb-1">${p.date} / ${p.category}</span><span>${p.location}</span></div>
-            <div class="text-right opacity-80"><span class="block">${p.camera||""}</span><span>${p.lens||""}</span></div>
-          </div>
-        </div>
-      </div>`).join("")}
-  </div>`;
+  return `<div style="columns:2;column-gap:1.25rem;">${photos.map(p => card(p)).join("")}</div>`;
 }
 
 function toggleAccordion(id, header) {
