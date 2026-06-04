@@ -9,7 +9,7 @@
       "size": "42"
     },
     "heroSub": {
-      "font": "",
+      "font": "Cormorant Garamond",
       "size": "18"
     },
     "siteName": {
@@ -21,11 +21,11 @@
       "size": ""
     },
     "yearLabel": {
-      "font": "",
+      "font": "DM Serif Display",
       "size": "32"
     },
     "locationHead": {
-      "font": "",
+      "font": "DM Serif Display",
       "size": "24"
     },
     "photoCaption": {
