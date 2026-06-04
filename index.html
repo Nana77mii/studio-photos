@@ -131,7 +131,7 @@ body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
 
 <!-- ═══════════════════════════ NAV ═══════════════════════════ -->
 <nav id="main-nav" class="fixed top-0 w-full z-50 bg-[#141313]/80 backdrop-blur-xl border-b border-white/10 flex justify-between items-center h-20 px-6 md:px-20">
-  <a onclick="showView('home')" class="text-white font-bold tracking-tighter text-sm cursor-pointer select-none">ECHOES' IN PIXELS</a>
+  <a onclick="showView('home')" id="nav-logo" class="text-white font-bold tracking-tighter text-sm cursor-pointer select-none">ECHOES' IN PIXELS</a>
   <div class="hidden md:flex items-center gap-6 text-xs tracking-widest font-semibold uppercase">
     <a onclick="showView('home')" class="text-white border-b border-white pb-0.5 cursor-pointer">Sanctuary</a>
     <a onclick="showView('chronicles')" class="text-on-surface-variant hover:text-white transition-colors nav-link cursor-pointer">Chronicles</a>
@@ -154,10 +154,10 @@ body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
       <div class="absolute inset-0 bg-gradient-to-b from-[#141313]/30 via-transparent to-[#141313]/90"></div>
     </div>
     <div class="relative z-10 text-center px-6 md:px-20">
-      <h1 class="text-5xl md:text-9xl font-bold tracking-[-0.04em] text-white mb-6 leading-none hero-txt" style="text-shadow:0 4px 24px rgba(0,0,0,0.5)">
+      <h1 id="hero-title" class="text-5xl md:text-9xl font-bold tracking-[-0.04em] text-white mb-6 leading-none hero-txt" style="text-shadow:0 4px 24px rgba(0,0,0,0.5)">
         ECHOES'<br/>IN PIXELS
       </h1>
-      <p class="text-base text-on-surface-variant max-w-xl mx-auto hero-txt">by Nana7mii — a collection of moments captured in time.</p>
+      <p id="hero-sub" class="text-base text-on-surface-variant max-w-xl mx-auto hero-txt">by Nana7mii — a collection of moments captured in time.</p>
     </div>
   </section>
 
@@ -265,6 +265,54 @@ body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
       <button onclick="saveConfig()" class="btn-primary text-xs">Save Config</button>
     </div>
 
+    <!-- Site Settings Panel -->
+    <div class="ghost-border rounded p-6 mb-8 bg-white/[0.02]">
+      <p class="text-xs tracking-widest uppercase text-on-surface-variant mb-6">Site Settings</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div class="md:col-span-2">
+          <label class="text-xs text-on-surface-variant mb-1 block">Site Name <span class="text-white/20">(nav &amp; footer)</span></label>
+          <input id="set-site-name" class="admin-input text-sm" placeholder="ECHOES' IN PIXELS"/>
+        </div>
+        <div>
+          <label class="text-xs text-on-surface-variant mb-1 block">Hero Title — Line 1</label>
+          <input id="set-hero-1" class="admin-input text-sm" placeholder="ECHOES'"/>
+        </div>
+        <div>
+          <label class="text-xs text-on-surface-variant mb-1 block">Hero Title — Line 2</label>
+          <input id="set-hero-2" class="admin-input text-sm" placeholder="IN PIXELS"/>
+        </div>
+        <div class="md:col-span-2">
+          <label class="text-xs text-on-surface-variant mb-1 block">Hero Subtitle</label>
+          <input id="set-hero-sub" class="admin-input text-sm" placeholder="by Nana7mii — a collection of moments…"/>
+        </div>
+      </div>
+      <div class="mb-6">
+        <label class="text-xs text-on-surface-variant mb-2 block">Hero Background</label>
+        <div class="flex gap-4 items-start">
+          <div class="w-36 h-24 ghost-border rounded overflow-hidden flex-shrink-0 bg-white/5">
+            <img id="hero-bg-thumb" class="w-full h-full object-cover" src="" style="display:none"/>
+            <div id="hero-bg-thumb-empty" class="w-full h-full flex items-center justify-center">
+              <span class="material-symbols-outlined text-2xl text-on-surface-variant/30">image</span>
+            </div>
+          </div>
+          <div class="flex-1 space-y-2">
+            <label class="drop-zone rounded p-3 text-center cursor-pointer block text-xs hover:border-white/30 transition-colors" onclick="document.getElementById('hero-bg-input').click()">
+              <span class="material-symbols-outlined text-xl text-on-surface-variant block mb-1">upload</span>
+              Upload image
+              <input id="hero-bg-input" type="file" accept="image/*" class="hidden" onchange="previewHeroBg(event)"/>
+            </label>
+            <input id="set-hero-bg-url" class="admin-input text-sm" placeholder="Or paste image URL…" oninput="applyHeroBgUrl(this.value)"/>
+          </div>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <button onclick="saveSettings()" class="btn-primary text-xs">Save Settings</button>
+        <div id="settings-progress" class="hidden text-xs text-on-surface-variant flex items-center gap-2">
+          <span class="material-symbols-outlined text-base animate-spin">autorenew</span> Saving…
+        </div>
+      </div>
+    </div>
+
     <!-- Upload Panel -->
     <div class="ghost-border rounded p-6 mb-8 bg-white/[0.02]">
       <p class="text-xs tracking-widest uppercase text-on-surface-variant mb-6">Upload New Photo</p>
@@ -352,7 +400,7 @@ body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
 
 <!-- Footer -->
 <footer id="main-footer" class="bg-[#141313] w-full py-10 border-t border-white/10 flex flex-col md:flex-row justify-between items-center px-6 md:px-20 gap-4 mt-auto">
-  <a onclick="showView('home')" class="text-white text-sm cursor-pointer">ECHOES' IN PIXELS</a>
+  <a onclick="showView('home')" id="footer-logo" class="text-white text-sm cursor-pointer">ECHOES' IN PIXELS</a>
   <div class="flex gap-6 text-xs tracking-widest uppercase text-on-surface-variant">
     <a class="hover:text-white transition-colors cursor-pointer">Instagram</a>
     <a class="hover:text-white transition-colors cursor-pointer">Privacy</a>
@@ -372,6 +420,16 @@ let ghConfig = {};
 let selectedFile = null;
 let photosCache = [];
 
+const DEFAULT_SETTINGS = {
+  siteName: "ECHOES' IN PIXELS",
+  heroLine1: "ECHOES'",
+  heroLine2: "IN PIXELS",
+  heroSub: "by Nana7mii — a collection of moments captured in time.",
+  heroBgUrl: ""
+};
+let siteSettings = { ...DEFAULT_SETTINGS };
+let pendingHeroBgFile = null;
+
 /* ═══════════════════════════════════════════════════════════
    ROUTING
 ═══════════════════════════════════════════════════════════ */
@@ -387,7 +445,7 @@ function showView(name) {
   footer.style.display = (name === "admin" || name === "admin-login") ? "none" : "";
   if (name === "home") loadTimeline();
   if (name === "chronicles") loadChronicles();
-  if (name === "admin") { loadConfig(); loadAdminGallery(); }
+  if (name === "admin") { loadConfig(); loadAdminGallery(); fillSettingsForm(siteSettings); }
 }
 
 function goBack() {
@@ -723,6 +781,143 @@ async function deletePhoto(id) {
 }
 
 /* ═══════════════════════════════════════════════════════════
+   SITE SETTINGS
+═══════════════════════════════════════════════════════════ */
+async function loadSettings() {
+  const ghCfg = JSON.parse(localStorage.getItem("gh_config") || "{}");
+  let settings = JSON.parse(localStorage.getItem("site_settings") || "null");
+  if (ghCfg.owner && ghCfg.repo) {
+    try {
+      const branch = ghCfg.branch || "main";
+      const res = await fetch(`https://raw.githubusercontent.com/${ghCfg.owner}/${ghCfg.repo}/${branch}/settings.json?t=${Date.now()}`);
+      if (res.ok) settings = await res.json();
+    } catch {}
+  }
+  if (settings) {
+    siteSettings = { ...DEFAULT_SETTINGS, ...settings };
+    localStorage.setItem("site_settings", JSON.stringify(siteSettings));
+  }
+  applySettings(siteSettings);
+}
+
+function applySettings(s) {
+  const nav = document.getElementById("nav-logo");
+  const foot = document.getElementById("footer-logo");
+  if (nav) nav.textContent = s.siteName || DEFAULT_SETTINGS.siteName;
+  if (foot) foot.textContent = s.siteName || DEFAULT_SETTINGS.siteName;
+
+  const title = document.getElementById("hero-title");
+  if (title) title.innerHTML = `${s.heroLine1 || DEFAULT_SETTINGS.heroLine1}<br/>${s.heroLine2 || DEFAULT_SETTINGS.heroLine2}`;
+
+  const sub = document.getElementById("hero-sub");
+  if (sub) sub.textContent = s.heroSub || DEFAULT_SETTINGS.heroSub;
+
+  if (s.heroBgUrl) {
+    const bg = document.getElementById("hero-bg");
+    if (bg) bg.src = s.heroBgUrl;
+    const thumb = document.getElementById("hero-bg-thumb");
+    const empty = document.getElementById("hero-bg-thumb-empty");
+    if (thumb) { thumb.src = s.heroBgUrl; thumb.style.display = ""; }
+    if (empty) empty.style.display = "none";
+  }
+}
+
+function fillSettingsForm(s) {
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ""; };
+  set("set-site-name", s.siteName || DEFAULT_SETTINGS.siteName);
+  set("set-hero-1",    s.heroLine1 || DEFAULT_SETTINGS.heroLine1);
+  set("set-hero-2",    s.heroLine2 || DEFAULT_SETTINGS.heroLine2);
+  set("set-hero-sub",  s.heroSub   || DEFAULT_SETTINGS.heroSub);
+  set("set-hero-bg-url", s.heroBgUrl || "");
+  const thumb = document.getElementById("hero-bg-thumb");
+  const empty = document.getElementById("hero-bg-thumb-empty");
+  if (s.heroBgUrl && thumb) {
+    thumb.src = s.heroBgUrl; thumb.style.display = "";
+    if (empty) empty.style.display = "none";
+  }
+}
+
+function previewHeroBg(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  pendingHeroBgFile = file;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const thumb = document.getElementById("hero-bg-thumb");
+    const empty = document.getElementById("hero-bg-thumb-empty");
+    const bg = document.getElementById("hero-bg");
+    if (thumb) { thumb.src = ev.target.result; thumb.style.display = ""; }
+    if (empty) empty.style.display = "none";
+    if (bg) bg.src = ev.target.result;
+    document.getElementById("set-hero-bg-url").value = "";
+  };
+  reader.readAsDataURL(file);
+}
+
+function applyHeroBgUrl(url) {
+  if (!url) return;
+  pendingHeroBgFile = null;
+  const bg = document.getElementById("hero-bg");
+  if (bg) bg.src = url;
+  const thumb = document.getElementById("hero-bg-thumb");
+  const empty = document.getElementById("hero-bg-thumb-empty");
+  if (thumb) { thumb.src = url; thumb.style.display = ""; }
+  if (empty) empty.style.display = "none";
+}
+
+async function saveSettings() {
+  const cfg = getConfig();
+  if (!cfg.owner || !cfg.repo || !cfg.token) { showStatus("Configure GitHub first.", "error"); return; }
+
+  const prog = document.getElementById("settings-progress");
+  prog.classList.remove("hidden");
+
+  let heroBgUrl = document.getElementById("set-hero-bg-url").value.trim();
+
+  if (pendingHeroBgFile) {
+    try {
+      const b64 = await fileToBase64(pendingHeroBgFile);
+      const ext = pendingHeroBgFile.name.split(".").pop().toLowerCase();
+      const heroPath = `photos/hero.${ext}`;
+      const existingSha = await getFileSha(heroPath);
+      await putFile(heroPath, b64, "Update hero background", existingSha);
+      heroBgUrl = `https://raw.githubusercontent.com/${cfg.owner}/${cfg.repo}/${cfg.branch}/photos/hero.${ext}`;
+      document.getElementById("set-hero-bg-url").value = heroBgUrl;
+      pendingHeroBgFile = null;
+    } catch (err) {
+      prog.classList.add("hidden");
+      showStatus("Background upload failed: " + err.message, "error");
+      return;
+    }
+  }
+
+  const settings = {
+    siteName: document.getElementById("set-site-name").value.trim() || DEFAULT_SETTINGS.siteName,
+    heroLine1: document.getElementById("set-hero-1").value.trim() || DEFAULT_SETTINGS.heroLine1,
+    heroLine2: document.getElementById("set-hero-2").value.trim() || DEFAULT_SETTINGS.heroLine2,
+    heroSub:   document.getElementById("set-hero-sub").value.trim() || DEFAULT_SETTINGS.heroSub,
+    heroBgUrl
+  };
+
+  localStorage.setItem("site_settings", JSON.stringify(settings));
+  siteSettings = settings;
+
+  try {
+    const json = JSON.stringify(settings, null, 2);
+    const b64 = btoa(unescape(encodeURIComponent(json)));
+    const existingSha = await getFileSha("settings.json");
+    await putFile("settings.json", b64, "Update site settings", existingSha);
+    applySettings(settings);
+    showStatus("Settings saved!", "success");
+  } catch (err) {
+    applySettings(settings);
+    showStatus("Saved locally; GitHub sync failed: " + err.message, "error");
+  } finally {
+    prog.classList.add("hidden");
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
    CHRONICLES (Tree View)
 ═══════════════════════════════════════════════════════════ */
 async function loadChronicles() {
@@ -928,6 +1123,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("cfg-repo").value   = ghConfig.repo;
   document.getElementById("cfg-branch").value = ghConfig.branch;
   document.getElementById("cfg-token").value  = ghConfig.token;
+  loadSettings();
   loadTimeline();
 });
 </script>
