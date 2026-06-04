@@ -873,6 +873,9 @@ document.addEventListener("DOMContentLoaded", () => {
   loadTimeline();
 });
 </script>
-<script src="https://cdn.jsdelivr.net/npm/exifr/dist/full.umd.cjs"></script>
+<script type="module">
+  import exifr from 'https://cdn.jsdelivr.net/npm/exifr/dist/full.esm.js';
+  window.exifr = exifr;
+</script>
 </body>
 </html>
