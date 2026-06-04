@@ -21,12 +21,12 @@
       "size": ""
     },
     "yearLabel": {
-      "font": "DM Serif Display",
+      "font": "Montserrat",
       "size": "32"
     },
     "locationHead": {
-      "font": "DM Serif Display",
-      "size": "24"
+      "font": "Montserrat",
+      "size": "20"
     },
     "photoCaption": {
       "font": "",
