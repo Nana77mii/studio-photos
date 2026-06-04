@@ -76,7 +76,7 @@ body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
 @keyframes txtIn { to { opacity:1; transform:translateY(0); } }
 
 /* ── Gallery ── */
-.gallery-card { overflow:hidden; position:relative; cursor:pointer; }
+.gallery-card { overflow:hidden; position:relative; cursor:pointer; min-height:180px; background:rgba(255,255,255,0.03); }
 .gallery-img { transition:transform 0.6s cubic-bezier(0.175,0.885,0.32,1.275), opacity 0.3s; display:block; width:100%; height:auto; max-width:100%; }
 .gallery-card:hover .gallery-img { transform:scale(1.04); opacity:.85; }
 .gallery-overlay {
@@ -113,8 +113,8 @@ body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
 /* ── Accordion ── */
 .accordion-body { display:grid; grid-template-rows:0fr; transition:grid-template-rows 0.7s cubic-bezier(0.175,0.885,0.32,1.275); }
 .accordion-body.open { grid-template-rows:1fr; }
-.accordion-inner { overflow:hidden; opacity:0; transform:scale(0.97) translateY(12px); transition:opacity 0.7s, transform 0.7s cubic-bezier(0.175,0.885,0.32,1.275); }
-.accordion-body.open .accordion-inner { opacity:1; transform:scale(1) translateY(0); }
+.accordion-inner { overflow:hidden; }
+.accordion-body.open .accordion-inner { opacity:1; }
 .acc-icon { transition:transform 0.5s cubic-bezier(0.175,0.885,0.32,1.275); }
 .accordion-header.open .acc-icon { transform:rotate(45deg); }
 
@@ -1589,7 +1589,7 @@ function rerenderTimeline() {
   });
   const years = Object.keys(byYear).sort((a, b) => b - a);
   container.innerHTML = years.map((year, yi) => `
-    <div class="mb-40 ${editModeActive ? '' : 'fade-in'}" ${editModeActive ? '' : `style="animation-delay:${yi*0.1}s"`}>
+    <div class="mb-40">
       <h2 class="timeline-year text-5xl md:text-9xl font-bold text-white tracking-tighter leading-none mb-6 md:mb-12">${year}</h2>
       ${Object.entries(byYear[year]).map(([loc, lPhotos]) => {
         const accordionId = "acc-" + year + "-" + loc.replace(/[^a-z0-9]/gi, "");
@@ -1785,6 +1785,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("cfg-token").value  = ghConfig.token;
   loadSettings();
   loadTimeline();
+  updateEditLayoutBtn();
 });
 </script>
 <script type="module">
