@@ -198,7 +198,7 @@ body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
         <input id="admin-pw-input" type="password" class="admin-input" placeholder="Enter password"
                onkeydown="if(event.key==='Enter') tryLogin()"/>
       </div>
-      <button onclick="tryLogin()" class="btn-primary w-full">Enter Studio</button>
+      <button type="button" onclick="tryLogin()" class="btn-primary w-full">Enter Studio</button>
       <p id="login-error" class="text-xs text-red-400 text-center hidden">Incorrect password.</p>
     </div>
     <p class="text-xs text-on-surface-variant mt-8 text-center opacity-50">
@@ -363,7 +363,9 @@ let photosCache = [];
 ═══════════════════════════════════════════════════════════ */
 function showView(name) {
   document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
-  document.getElementById("view-" + name).classList.add("active");
+  const target = document.getElementById("view-" + name);
+  if (!target) return;
+  target.classList.add("active");
   previousView = currentView;
   currentView = name;
   window.scrollTo(0, 0);
