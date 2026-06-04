@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>STUDIO | The Art of Observation</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+tailwind.config = {
+  darkMode: "class",
+  theme: {
+    extend: {
+      colors: {
+        "surface-container": "#201f1f",
+        "secondary": "#c7c6cb",
+        "on-primary": "#2f3131",
+        "background": "#141313",
+        "surface-container-highest": "#353434",
+        "outline": "#8e9192",
+        "primary": "#ffffff",
+        "on-surface-variant": "#c4c7c8",
+        "surface": "#141313",
+        "on-background": "#e5e2e1",
+        "surface-variant": "#353434",
+        "on-surface": "#e5e2e1",
+        "outline-variant": "#444748",
+        "secondary-container": "#46464b",
+        "surface-container-high": "#2a2a2a",
+      },
+      borderRadius: {
+        DEFAULT: "0.125rem",
+        lg: "0.25rem",
+        xl: "0.5rem",
+        full: "0.75rem"
+      },
+      spacing: {
+        "page-margin-desktop": "80px",
+        "page-margin-mobile": "24px",
+        "gutter": "32px",
+        "element-gap": "24px",
+        "section-gap": "160px"
+      },
+      fontFamily: {
+        sans: ["Geist", "sans-serif"]
+      }
+    }
+  }
+}
+</script>
+<style>
+/* ── CONFIG ── */
+:root {
+  --gh-owner: "Nana77mii";
+  --gh-repo: "studio-photos";
+  --gh-branch: "main";
+  --admin-password: "studio2026";
+}
+
+body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
+
+/* ── Transitions ── */
+.view { display:none; }
+.view.active { display:block; }
+
+.fade-in { animation: fadeIn 0.5s cubic-bezier(0.2,0.8,0.2,1) forwards; }
+@keyframes fadeIn { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+
+.hero-img-in { animation: heroIn 2s cubic-bezier(0.2,0.8,0.2,1) forwards; opacity:0; }
+@keyframes heroIn { to { opacity:0.8; } }
+
+.hero-txt { opacity:0; transform:translateY(20px); animation: txtIn 0.8s cubic-bezier(0.175,0.885,0.32,1.275) forwards; }
+.hero-txt:nth-child(1) { animation-delay:.5s; }
+.hero-txt:nth-child(2) { animation-delay:.7s; }
+@keyframes txtIn { to { opacity:1; transform:translateY(0); } }
+
+/* ── Gallery ── */
+.gallery-card { overflow:hidden; position:relative; cursor:pointer; }
+.gallery-img { transition:transform 0.6s cubic-bezier(0.175,0.885,0.32,1.275), opacity 0.3s; }
+.gallery-card:hover .gallery-img { transform:scale(1.04); opacity:.85; }
+.gallery-overlay {
+  background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0) 100%);
+  opacity:0; transition:opacity 0.4s;
+}
+.gallery-card:hover .gallery-overlay { opacity:1; }
+
+.ghost-border { border:1px solid rgba(255,255,255,0.08); }
+
+/* ── Nav underline ── */
+.nav-link { position:relative; }
+.nav-link::after { content:''; position:absolute; width:0; height:1px; bottom:-4px; left:0; background:#fff; transition:width 0.3s; }
+.nav-link:hover::after { width:100%; }
+
+/* ── Accordion ── */
+.accordion-body { display:grid; grid-template-rows:0fr; transition:grid-template-rows 0.7s cubic-bezier(0.175,0.885,0.32,1.275); }
+.accordion-body.open { grid-template-rows:1fr; }
+.accordion-inner { overflow:hidden; opacity:0; transform:scale(0.97) translateY(12px); transition:opacity 0.7s, transform 0.7s cubic-bezier(0.175,0.885,0.32,1.275); }
+.accordion-body.open .accordion-inner { opacity:1; transform:scale(1) translateY(0); }
+.acc-icon { transition:transform 0.5s cubic-bezier(0.175,0.885,0.32,1.275); }
+.accordion-header.open .acc-icon { transform:rotate(45deg); }
+
+/* ── Detail page ── */
+#detail-img-wrap { max-height:85vh; }
+
+/* ── Admin ── */
+.drop-zone { border:2px dashed rgba(255,255,255,0.15); transition:border-color 0.3s, background 0.3s; }
+.drop-zone.drag-over { border-color:rgba(255,255,255,0.5); background:rgba(255,255,255,0.04); }
+.admin-input { background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12); color:#e5e2e1; border-radius:4px; padding:10px 14px; width:100%; transition:border-color 0.2s; }
+.admin-input:focus { outline:none; border-color:rgba(255,255,255,0.4); }
+.admin-select { background:#1c1c1c; border:1px solid rgba(255,255,255,0.12); color:#e5e2e1; border-radius:4px; padding:10px 14px; width:100%; }
+.tag-chip { background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.12); border-radius:3px; padding:2px 10px; font-size:11px; display:inline-flex; align-items:center; gap:6px; }
+.photo-thumb { aspect-ratio:1; object-fit:cover; border-radius:2px; }
+.shimmer { background:linear-gradient(90deg,#1a1a1a 25%,#222 50%,#1a1a1a 75%); background-size:200% 100%; animation:shimmer 1.5s infinite; }
+@keyframes shimmer { 0%{background-position:200% 0;} 100%{background-position:-200% 0;} }
+.btn-primary { background:#fff; color:#141313; padding:10px 24px; border-radius:2px; font-size:12px; letter-spacing:.08em; font-weight:600; transition:opacity .2s, transform .15s; cursor:pointer; }
+.btn-primary:hover { opacity:.85; }
+.btn-primary:active { transform:scale(.97); }
+.btn-ghost { border:1px solid rgba(255,255,255,.2); color:#e5e2e1; padding:8px 20px; border-radius:2px; font-size:12px; letter-spacing:.08em; font-weight:600; transition:border-color .2s, background .2s; cursor:pointer; }
+.btn-ghost:hover { border-color:rgba(255,255,255,.5); background:rgba(255,255,255,.05); }
+.status-bar { position:fixed; bottom:24px; right:24px; background:#1e1e1e; border:1px solid rgba(255,255,255,.12); border-radius:6px; padding:12px 20px; font-size:13px; z-index:9999; transition:opacity .4s, transform .4s; transform:translateY(8px); opacity:0; pointer-events:none; }
+.status-bar.show { opacity:1; transform:translateY(0); }
+.status-bar.success { border-color:rgba(120,220,120,.4); color:#7fdc7f; }
+.status-bar.error { border-color:rgba(220,80,80,.4); color:#dc5050; }
+</style>
+</head>
+<body class="min-h-screen flex flex-col overflow-x-hidden">
+
+<!-- ═══════════════════════════ STATUS BAR ═══════════════════════════ -->
+<div id="status-bar" class="status-bar"></div>
+
+<!-- ═══════════════════════════ NAV ═══════════════════════════ -->
+<nav id="main-nav" class="fixed top-0 w-full z-50 bg-[#141313]/80 backdrop-blur-xl border-b border-white/10 flex justify-between items-center h-20 px-6 md:px-20">
+  <a onclick="showView('home')" class="text-white font-bold tracking-tighter text-lg cursor-pointer select-none">STUDIO</a>
+  <div class="hidden md:flex items-center gap-6 text-xs tracking-widest font-semibold uppercase">
+    <a onclick="showView('home')" class="text-white border-b border-white pb-0.5 cursor-pointer">Portfolio</a>
+    <a onclick="scrollToTimeline()" class="text-on-surface-variant hover:text-white transition-colors nav-link cursor-pointer">Timeline</a>
+    <a class="text-on-surface-variant hover:text-white transition-colors nav-link cursor-pointer">About</a>
+    <a onclick="showView('admin-login')" class="text-on-surface-variant hover:text-white transition-colors nav-link cursor-pointer">Admin</a>
+  </div>
+  <button onclick="showView('home')" class="btn-primary text-xs">Inquire</button>
+</nav>
+
+<!-- ═══════════════════════════════════════════════════════════
+     VIEW 1: HOME / PORTFOLIO
+═══════════════════════════════════════════════════════════ -->
+<div id="view-home" class="view active pt-0">
+
+  <!-- Hero -->
+  <section class="relative w-full h-screen flex items-center justify-center overflow-hidden">
+    <div class="absolute inset-0">
+      <img id="hero-bg" src="https://lh3.googleusercontent.com/aida/AP1WRLu8tudpQbg-SF43nT5MSG00yBQl36zqtusnKX9F9QxJ5JBJ4Hue_rpCqAZOzWIYVfc-QBtUWVTnn_GhTQkvJopn9DaUbs8zDv8hVENuzfxIvTNWku09ekmyqTSo59rqV0223xQIBrMEXGieis--OdPr6d311U1RFf-gfjDgoUBcVrtmludCj57Us246EGmM86pa_-eyFwQJtBUkktB1F-xHtKyjgm26QZmvPy6eSY1_fahM2zvcK4uaqg" 
+           alt="Hero" class="w-full h-full object-cover hero-img-in"/>
+      <div class="absolute inset-0 bg-gradient-to-b from-[#141313]/30 via-transparent to-[#141313]/90"></div>
+    </div>
+    <div class="relative z-10 text-center px-6 md:px-20">
+      <h1 class="text-5xl md:text-9xl font-bold tracking-[-0.04em] text-white mb-6 leading-none hero-txt" style="text-shadow:0 4px 24px rgba(0,0,0,0.5)">
+        STUDIO<br/>THE ART OF OBSERVATION
+      </h1>
+      <p class="text-base text-on-surface-variant max-w-xl mx-auto hero-txt">A collection of moments captured in time.</p>
+    </div>
+  </section>
+
+  <!-- Timeline -->
+  <section id="timeline-section" class="py-40 bg-[#141313]">
+    <div id="timeline-container" class="px-6 md:px-20">
+      <div class="text-center text-on-surface-variant py-20 text-sm tracking-widest uppercase" id="timeline-loading">
+        Loading portfolio…
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     VIEW 2: PHOTO DETAIL
+═══════════════════════════════════════════════════════════ -->
+<div id="view-detail" class="view pt-20 min-h-screen">
+  <div class="max-w-6xl mx-auto px-6 md:px-20 py-12">
+    <button onclick="goBack()" class="flex items-center gap-2 text-on-surface-variant hover:text-white transition-colors text-xs tracking-widest uppercase mb-10 group">
+      <span class="material-symbols-outlined text-base group-hover:-translate-x-1 transition-transform">arrow_back</span>
+      Back to Portfolio
+    </button>
+    <div id="detail-content" class="fade-in">
+      <!-- populated by JS -->
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     VIEW 3: ADMIN LOGIN
+═══════════════════════════════════════════════════════════ -->
+<div id="view-admin-login" class="view pt-20 min-h-screen flex items-center justify-center">
+  <div class="w-full max-w-sm px-6">
+    <p class="text-xs tracking-widest uppercase text-on-surface-variant mb-2">Admin Access</p>
+    <h2 class="text-3xl font-bold tracking-tight text-white mb-8">Sign In</h2>
+    <div class="space-y-4">
+      <div>
+        <label class="text-xs tracking-widest uppercase text-on-surface-variant block mb-2">Password</label>
+        <input id="admin-pw-input" type="password" class="admin-input" placeholder="Enter password"
+               onkeydown="if(event.key==='Enter') tryLogin()"/>
+      </div>
+      <button onclick="tryLogin()" class="btn-primary w-full">Enter Studio</button>
+      <p id="login-error" class="text-xs text-red-400 text-center hidden">Incorrect password.</p>
+    </div>
+    <p class="text-xs text-on-surface-variant mt-8 text-center opacity-50">
+      Default password is set in the HTML file header.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     VIEW 4: ADMIN DASHBOARD
+═══════════════════════════════════════════════════════════ -->
+<div id="view-admin" class="view pt-20 min-h-screen">
+  <div class="max-w-5xl mx-auto px-6 md:px-16 py-12">
+
+    <!-- Header -->
+    <div class="flex justify-between items-start mb-12">
+      <div>
+        <p class="text-xs tracking-widest uppercase text-on-surface-variant mb-1">Admin Dashboard</p>
+        <h2 class="text-4xl font-bold tracking-tight text-white">Manage Portfolio</h2>
+      </div>
+      <div class="flex items-center gap-3">
+        <button onclick="showView('home')" class="btn-ghost text-xs">← View Site</button>
+        <button onclick="logout()" class="btn-ghost text-xs">Sign Out</button>
+      </div>
+    </div>
+
+    <!-- GitHub Config Panel -->
+    <div class="ghost-border rounded p-6 mb-8 bg-white/[0.02]">
+      <p class="text-xs tracking-widest uppercase text-on-surface-variant mb-4">GitHub Configuration</p>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <div>
+          <label class="text-xs text-on-surface-variant mb-1 block">Owner / Username</label>
+          <input id="cfg-owner" class="admin-input text-sm" placeholder="your-username"/>
+        </div>
+        <div>
+          <label class="text-xs text-on-surface-variant mb-1 block">Repository</label>
+          <input id="cfg-repo" class="admin-input text-sm" placeholder="portfolio-photos"/>
+        </div>
+        <div>
+          <label class="text-xs text-on-surface-variant mb-1 block">Branch</label>
+          <input id="cfg-branch" class="admin-input text-sm" placeholder="main"/>
+        </div>
+      </div>
+      <div class="mb-4">
+        <label class="text-xs text-on-surface-variant mb-1 block">Personal Access Token
+          <span class="text-white/30 ml-1">(stored locally in browser only)</span>
+        </label>
+        <input id="cfg-token" type="password" class="admin-input text-sm" placeholder="ghp_xxxxxxxxxxxxxxxx"/>
+      </div>
+      <button onclick="saveConfig()" class="btn-primary text-xs">Save Config</button>
+    </div>
+
+    <!-- Upload Panel -->
+    <div class="ghost-border rounded p-6 mb-8 bg-white/[0.02]">
+      <p class="text-xs tracking-widest uppercase text-on-surface-variant mb-6">Upload New Photo</p>
+      
+      <!-- Drop Zone -->
+      <div id="drop-zone" class="drop-zone rounded p-10 text-center mb-6 cursor-pointer" onclick="document.getElementById('file-input').click()">
+        <span class="material-symbols-outlined text-4xl text-on-surface-variant mb-3 block">upload_file</span>
+        <p class="text-sm text-on-surface-variant">Drop photo here or <span class="text-white underline">browse</span></p>
+        <p class="text-xs text-on-surface-variant/50 mt-1">JPG, PNG, WEBP — max 20MB</p>
+        <input id="file-input" type="file" accept="image/*" class="hidden" onchange="handleFileSelect(event)"/>
+      </div>
+
+      <!-- Preview -->
+      <div id="upload-preview" class="hidden mb-6">
+        <div class="flex gap-4 items-start">
+          <img id="preview-img" class="w-32 h-32 object-cover rounded ghost-border"/>
+          <div class="flex-1">
+            <p id="preview-name" class="text-sm text-white font-medium mb-1"></p>
+            <p id="preview-size" class="text-xs text-on-surface-variant"></p>
+          </div>
+          <button onclick="clearUpload()" class="text-on-surface-variant hover:text-white transition-colors">
+            <span class="material-symbols-outlined text-base">close</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Metadata Form -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div>
+          <label class="text-xs text-on-surface-variant mb-1 block">Location</label>
+          <input id="meta-location" class="admin-input text-sm" placeholder="TOKYO, JP"/>
+        </div>
+        <div>
+          <label class="text-xs text-on-surface-variant mb-1 block">Date</label>
+          <input id="meta-date" type="date" class="admin-input text-sm"/>
+        </div>
+        <div>
+          <label class="text-xs text-on-surface-variant mb-1 block">Category</label>
+          <select id="meta-category" class="admin-select text-sm">
+            <option value="STREET">Street</option>
+            <option value="PORTRAIT">Portrait</option>
+            <option value="LANDSCAPE">Landscape</option>
+            <option value="ARCHITECTURE">Architecture</option>
+            <option value="ABSTRACT">Abstract</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-on-surface-variant mb-1 block">Camera</label>
+          <input id="meta-camera" class="admin-input text-sm" placeholder="LEICA M11"/>
+        </div>
+        <div class="md:col-span-2">
+          <label class="text-xs text-on-surface-variant mb-1 block">Lens / Settings</label>
+          <input id="meta-lens" class="admin-input text-sm" placeholder="35MM f/1.4"/>
+        </div>
+        <div class="md:col-span-2">
+          <label class="text-xs text-on-surface-variant mb-1 block">Caption / Note</label>
+          <input id="meta-caption" class="admin-input text-sm" placeholder="Optional short description…"/>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button onclick="uploadPhoto()" class="btn-primary text-xs">Upload to GitHub</button>
+        <div id="upload-progress" class="hidden text-xs text-on-surface-variant flex items-center gap-2">
+          <span class="material-symbols-outlined text-base animate-spin">autorenew</span>
+          Uploading…
+        </div>
+      </div>
+    </div>
+
+    <!-- Photo Library -->
+    <div>
+      <div class="flex justify-between items-center mb-4">
+        <p class="text-xs tracking-widest uppercase text-on-surface-variant">Photo Library</p>
+        <button onclick="loadAdminGallery()" class="text-xs text-on-surface-variant hover:text-white transition-colors flex items-center gap-1">
+          <span class="material-symbols-outlined text-sm">refresh</span> Refresh
+        </button>
+      </div>
+      <div id="admin-gallery" class="grid grid-cols-3 md:grid-cols-5 gap-2">
+        <div class="text-xs text-on-surface-variant/50 col-span-full py-8 text-center">Configure GitHub above to load photos.</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Footer -->
+<footer id="main-footer" class="bg-[#141313] w-full py-10 border-t border-white/10 flex flex-col md:flex-row justify-between items-center px-6 md:px-20 gap-4 mt-auto">
+  <a onclick="showView('home')" class="text-white text-sm cursor-pointer">STUDIO</a>
+  <div class="flex gap-6 text-xs tracking-widest uppercase text-on-surface-variant">
+    <a class="hover:text-white transition-colors cursor-pointer">Instagram</a>
+    <a class="hover:text-white transition-colors cursor-pointer">Privacy</a>
+  </div>
+  <p class="text-xs text-on-surface-variant">© 2026 STUDIO PHOTOGRAPHY. ALL RIGHTS RESERVED.</p>
+</footer>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════════════ */
+const ADMIN_PASSWORD = "studio2026"; // Change this!
+
+let currentView = "home";
+let previousView = "home";
+let ghConfig = {};
+let selectedFile = null;
+let photosCache = [];
+
+/* ═══════════════════════════════════════════════════════════
+   ROUTING
+═══════════════════════════════════════════════════════════ */
+function showView(name) {
+  document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+  document.getElementById("view-" + name).classList.add("active");
+  previousView = currentView;
+  currentView = name;
+  window.scrollTo(0, 0);
+  const footer = document.getElementById("main-footer");
+  footer.style.display = (name === "admin" || name === "admin-login") ? "none" : "";
+  if (name === "home") loadTimeline();
+  if (name === "admin") { loadConfig(); loadAdminGallery(); }
+}
+
+function goBack() {
+  showView(previousView === currentView ? "home" : previousView);
+}
+
+function scrollToTimeline() {
+  showView("home");
+  setTimeout(() => {
+    document.getElementById("timeline-section").scrollIntoView({ behavior: "smooth" });
+  }, 100);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   AUTH
+═══════════════════════════════════════════════════════════ */
+function tryLogin() {
+  const pw = document.getElementById("admin-pw-input").value;
+  const err = document.getElementById("login-error");
+  if (pw === ADMIN_PASSWORD) {
+    err.classList.add("hidden");
+    document.getElementById("admin-pw-input").value = "";
+    showView("admin");
+  } else {
+    err.classList.remove("hidden");
+  }
+}
+function logout() { showView("home"); }
+
+/* ═══════════════════════════════════════════════════════════
+   GITHUB CONFIG
+═══════════════════════════════════════════════════════════ */
+function saveConfig() {
+  ghConfig = {
+    owner: document.getElementById("cfg-owner").value.trim(),
+    repo:  document.getElementById("cfg-repo").value.trim(),
+    branch: document.getElementById("cfg-branch").value.trim() || "main",
+    token: document.getElementById("cfg-token").value.trim()
+  };
+  localStorage.setItem("gh_config", JSON.stringify({
+    owner: ghConfig.owner, repo: ghConfig.repo, branch: ghConfig.branch
+  }));
+  // Token stored separately (slightly safer UX pattern)
+  sessionStorage.setItem("gh_token", ghConfig.token);
+  showStatus("Config saved!", "success");
+  loadAdminGallery();
+}
+
+function loadConfig() {
+  const saved = JSON.parse(localStorage.getItem("gh_config") || "{}");
+  const token = sessionStorage.getItem("gh_token") || "";
+  ghConfig = { ...saved, token };
+  if (saved.owner) document.getElementById("cfg-owner").value = saved.owner;
+  if (saved.repo)  document.getElementById("cfg-repo").value  = saved.repo;
+  if (saved.branch) document.getElementById("cfg-branch").value = saved.branch;
+  if (token) document.getElementById("cfg-token").value = token;
+}
+
+function getConfig() {
+  return {
+    owner: document.getElementById("cfg-owner").value.trim() || ghConfig.owner,
+    repo:  document.getElementById("cfg-repo").value.trim()  || ghConfig.repo,
+    branch: document.getElementById("cfg-branch").value.trim() || ghConfig.branch || "main",
+    token: document.getElementById("cfg-token").value.trim() || ghConfig.token
+  };
+}
+
+/* ═══════════════════════════════════════════════════════════
+   GITHUB API HELPERS
+═══════════════════════════════════════════════════════════ */
+async function ghFetch(path, opts = {}) {
+  const { owner, repo, branch, token } = getConfig();
+  if (!owner || !repo || !token) throw new Error("GitHub not configured");
+  const base = `https://api.github.com/repos/${owner}/${repo}`;
+  const res = await fetch(`${base}${path}`, {
+    ...opts,
+    headers: {
+      Authorization: `token ${token}`,
+      "Content-Type": "application/json",
+      Accept: "application/vnd.github+json",
+      ...(opts.headers || {})
+    }
+  });
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    throw new Error(e.message || `GitHub ${res.status}`);
+  }
+  return res.status === 204 ? null : res.json();
+}
+
+async function getFileSha(path) {
+  try {
+    const data = await ghFetch(`/contents/${path}`);
+    return data.sha;
+  } catch { return null; }
+}
+
+async function putFile(path, base64content, message, sha = null) {
+  const { branch } = getConfig();
+  const body = { message, content: base64content, branch };
+  if (sha) body.sha = sha;
+  return ghFetch(`/contents/${path}`, { method: "PUT", body: JSON.stringify(body) });
+}
+
+async function deleteFile(path, sha, message) {
+  const { branch } = getConfig();
+  return ghFetch(`/contents/${path}`, {
+    method: "DELETE",
+    body: JSON.stringify({ message, sha, branch })
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   METADATA JSON (photos/index.json in repo)
+═══════════════════════════════════════════════════════════ */
+async function readIndex() {
+  try {
+    const { owner, repo, branch } = getConfig();
+    const url = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/photos/index.json`;
+    const res = await fetch(url + "?t=" + Date.now());
+    if (!res.ok) return [];
+    return res.json();
+  } catch { return []; }
+}
+
+async function writeIndex(photos) {
+  const json = JSON.stringify(photos, null, 2);
+  const b64 = btoa(unescape(encodeURIComponent(json)));
+  const sha = await getFileSha("photos/index.json");
+  await putFile("photos/index.json", b64, "Update photo index", sha);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   FILE UPLOAD HANDLING
+═══════════════════════════════════════════════════════════ */
+function handleFileSelect(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  setSelectedFile(file);
+}
+
+function setSelectedFile(file) {
+  selectedFile = file;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    document.getElementById("preview-img").src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+  document.getElementById("preview-name").textContent = file.name;
+  document.getElementById("preview-size").textContent = (file.size / 1024 / 1024).toFixed(2) + " MB";
+  document.getElementById("upload-preview").classList.remove("hidden");
+  document.getElementById("drop-zone").classList.add("hidden");
+}
+
+function clearUpload() {
+  selectedFile = null;
+  document.getElementById("file-input").value = "";
+  document.getElementById("upload-preview").classList.add("hidden");
+  document.getElementById("drop-zone").classList.remove("hidden");
+}
+
+// Drag and drop
+const dz = document.getElementById("drop-zone");
+dz.addEventListener("dragover", e => { e.preventDefault(); dz.classList.add("drag-over"); });
+dz.addEventListener("dragleave", () => dz.classList.remove("drag-over"));
+dz.addEventListener("drop", e => {
+  e.preventDefault(); dz.classList.remove("drag-over");
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith("image/")) setSelectedFile(file);
+});
+
+/* ═══════════════════════════════════════════════════════════
+   UPLOAD PHOTO
+═══════════════════════════════════════════════════════════ */
+async function uploadPhoto() {
+  if (!selectedFile) { showStatus("Please select a photo first.", "error"); return; }
+  const cfg = getConfig();
+  if (!cfg.owner || !cfg.repo || !cfg.token) { showStatus("Configure GitHub first.", "error"); return; }
+
+  const location  = document.getElementById("meta-location").value.trim().toUpperCase() || "UNKNOWN";
+  const date      = document.getElementById("meta-date").value || new Date().toISOString().slice(0, 10);
+  const category  = document.getElementById("meta-category").value;
+  const camera    = document.getElementById("meta-camera").value.trim();
+  const lens      = document.getElementById("meta-lens").value.trim();
+  const caption   = document.getElementById("meta-caption").value.trim();
+
+  const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const ext = selectedFile.name.split(".").pop().toLowerCase();
+  const fileName = `photos/${id}.${ext}`;
+
+  document.getElementById("upload-progress").classList.remove("hidden");
+
+  try {
+    // 1. Read file as base64
+    const b64 = await fileToBase64(selectedFile);
+
+    // 2. Upload image to GitHub
+    await putFile(fileName, b64, `Add photo: ${location} ${date}`);
+
+    // 3. Build raw URL
+    const rawUrl = `https://raw.githubusercontent.com/${cfg.owner}/${cfg.repo}/${cfg.branch}/${fileName}`;
+
+    // 4. Update index
+    const photos = await readIndex();
+    const year = date.slice(0, 4);
+    const month = date.slice(5, 7);
+    photos.unshift({ id, url: rawUrl, location, date, year, month, category, camera, lens, caption });
+    await writeIndex(photos);
+    photosCache = photos;
+
+    showStatus("Photo uploaded successfully!", "success");
+    clearUpload();
+    ["meta-location","meta-date","meta-camera","meta-lens","meta-caption"].forEach(id => {
+      document.getElementById(id).value = "";
+    });
+    loadAdminGallery();
+  } catch (err) {
+    showStatus("Upload failed: " + err.message, "error");
+  } finally {
+    document.getElementById("upload-progress").classList.add("hidden");
+  }
+}
+
+function fileToBase64(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result.split(",")[1]);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ADMIN GALLERY
+═══════════════════════════════════════════════════════════ */
+async function loadAdminGallery() {
+  const cfg = getConfig();
+  if (!cfg.owner || !cfg.repo) return;
+  const gallery = document.getElementById("admin-gallery");
+  gallery.innerHTML = `<div class="col-span-full shimmer h-24 rounded"></div>`;
+  try {
+    const photos = await readIndex();
+    photosCache = photos;
+    if (photos.length === 0) {
+      gallery.innerHTML = `<div class="text-xs text-on-surface-variant/50 col-span-full py-8 text-center">No photos yet. Upload your first photo above.</div>`;
+      return;
+    }
+    gallery.innerHTML = photos.map(p => `
+      <div class="relative group">
+        <img src="${p.url}" class="photo-thumb w-full ghost-border" loading="lazy" alt="${p.location}"/>
+        <div class="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
+          <p class="text-xs text-white text-center px-1 leading-tight">${p.location}<br/><span class="text-white/50">${p.date}</span></p>
+          <button onclick="deletePhoto('${p.id}')" class="text-xs text-red-400 hover:text-red-300 transition-colors flex items-center gap-1">
+            <span class="material-symbols-outlined text-sm">delete</span> Delete
+          </button>
+        </div>
+      </div>
+    `).join("");
+  } catch (err) {
+    gallery.innerHTML = `<div class="text-xs text-red-400 col-span-full py-8 text-center">${err.message}</div>`;
+  }
+}
+
+async function deletePhoto(id) {
+  if (!confirm("Delete this photo?")) return;
+  try {
+    const photos = await readIndex();
+    const photo = photos.find(p => p.id === id);
+    if (!photo) { showStatus("Photo not found.", "error"); return; }
+
+    // Delete image file
+    const path = photo.url.split(`/${getConfig().branch}/`)[1];
+    const sha = await getFileSha(path);
+    if (sha) await deleteFile(path, sha, `Delete photo: ${photo.location}`);
+
+    // Update index
+    const updated = photos.filter(p => p.id !== id);
+    await writeIndex(updated);
+    photosCache = updated;
+    showStatus("Photo deleted.", "success");
+    loadAdminGallery();
+  } catch (err) {
+    showStatus("Delete failed: " + err.message, "error");
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PORTFOLIO TIMELINE (Public View)
+═══════════════════════════════════════════════════════════ */
+async function loadTimeline() {
+  const container = document.getElementById("timeline-container");
+  const loading = document.getElementById("timeline-loading");
+
+  // Try from cache first
+  let photos = photosCache;
+  if (photos.length === 0) {
+    const saved = JSON.parse(localStorage.getItem("gh_config") || "{}");
+    if (!saved.owner || !saved.repo) {
+      loading.textContent = "Portfolio not connected to GitHub yet.";
+      return;
+    }
+    ghConfig = saved;
+    try {
+      photos = await readIndex();
+      photosCache = photos;
+    } catch {
+      loading.textContent = "Could not load portfolio.";
+      return;
+    }
+  }
+
+  if (photos.length === 0) {
+    loading.textContent = "No photos yet.";
+    return;
+  }
+
+  loading.style.display = "none";
+
+  // Group by year → location (location+year combo)
+  const byYear = {};
+  photos.forEach(p => {
+    if (!byYear[p.year]) byYear[p.year] = {};
+    const key = `${p.location}`;
+    if (!byYear[p.year][key]) byYear[p.year][key] = [];
+    byYear[p.year][key].push(p);
+  });
+
+  const years = Object.keys(byYear).sort((a,b) => b - a);
+
+  container.innerHTML = years.map((year, yi) => `
+    <div class="mb-40 fade-in" style="animation-delay:${yi*0.1}s">
+      <h2 class="text-7xl md:text-9xl font-bold text-white tracking-tighter leading-none mb-12">${year}</h2>
+      ${Object.entries(byYear[year]).map(([loc, lPhotos], li) => {
+        const firstPhoto = lPhotos[0];
+        const dateStr = firstPhoto.date;
+        const accordionId = `acc-${year}-${li}`;
+        const isFirst = yi === 0 && li === 0;
+        return `
+          <div class="mb-8">
+            <div class="accordion-header ${isFirst ? 'open' : ''} cursor-pointer group flex items-center gap-4 mb-0"
+                 onclick="toggleAccordion('${accordionId}', this)">
+              <p class="text-3xl md:text-5xl font-bold text-white tracking-tight">${loc} — ${dateStr}</p>
+              <div class="h-px bg-white/10 flex-grow"></div>
+              <span class="material-symbols-outlined text-2xl text-on-surface-variant acc-icon group-hover:text-white transition-colors">add</span>
+            </div>
+            <div id="${accordionId}" class="accordion-body ${isFirst ? 'open' : ''}">
+              <div class="accordion-inner pt-8">
+                ${renderPhotoGrid(lPhotos)}
+              </div>
+            </div>
+          </div>`;
+      }).join("")}
+    </div>
+  `).join("");
+}
+
+function renderPhotoGrid(photos) {
+  if (photos.length === 1) {
+    // Full width landscape
+    const p = photos[0];
+    return `
+      <div class="w-screen relative left-1/2 -translate-x-1/2 gallery-card aspect-video cursor-pointer"
+           onclick="showDetail('${p.id}')">
+        <img src="${p.url}" alt="${p.location}" class="w-full h-full object-cover gallery-img" loading="lazy"/>
+        <div class="gallery-overlay absolute inset-0 flex flex-col justify-end p-12">
+          <div class="text-xs tracking-widest text-on-surface-variant flex justify-between items-end max-w-7xl mx-auto w-full">
+            <div><span class="block text-white mb-1 text-base">${p.date} / ${p.category}</span><span>${p.location}</span></div>
+            <div class="text-right opacity-80"><span class="block">${p.camera||""}</span><span>${p.lens||""}</span></div>
+          </div>
+        </div>
+      </div>`;
+  }
+  // 2-col portrait grid
+  return `<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    ${photos.map(p => `
+      <div class="gallery-card ghost-border aspect-[3/4] cursor-pointer" onclick="showDetail('${p.id}')">
+        <img src="${p.url}" alt="${p.location}" class="w-full h-full object-cover gallery-img" loading="lazy"/>
+        <div class="gallery-overlay absolute inset-0 flex flex-col justify-end p-6">
+          <div class="text-xs tracking-widest text-on-surface-variant flex justify-between items-end">
+            <div><span class="block text-white mb-1">${p.date} / ${p.category}</span><span>${p.location}</span></div>
+            <div class="text-right opacity-80"><span class="block">${p.camera||""}</span><span>${p.lens||""}</span></div>
+          </div>
+        </div>
+      </div>`).join("")}
+  </div>`;
+}
+
+function toggleAccordion(id, header) {
+  const body = document.getElementById(id);
+  body.classList.toggle("open");
+  header.classList.toggle("open");
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PHOTO DETAIL VIEW
+═══════════════════════════════════════════════════════════ */
+function showDetail(id) {
+  const photo = photosCache.find(p => p.id === id);
+  if (!photo) return;
+  
+  document.getElementById("detail-content").innerHTML = `
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
+      <!-- Image -->
+      <div id="detail-img-wrap" class="ghost-border overflow-hidden">
+        <img src="${photo.url}" alt="${photo.location}" class="w-full object-contain max-h-[80vh]"/>
+      </div>
+      <!-- Info -->
+      <div class="lg:pt-8">
+        <p class="text-xs tracking-widest uppercase text-on-surface-variant mb-2">${photo.date}</p>
+        <h1 class="text-4xl md:text-5xl font-bold tracking-tight text-white mb-2 leading-tight">${photo.location}</h1>
+        <p class="text-on-surface-variant text-base mb-8">${photo.category}</p>
+
+        ${photo.caption ? `<p class="text-on-surface-variant leading-relaxed mb-8 text-base">${photo.caption}</p>` : ""}
+
+        <div class="space-y-3 border-t border-white/10 pt-6">
+          ${photo.camera ? `<div class="flex justify-between text-sm"><span class="text-on-surface-variant tracking-wider text-xs uppercase">Camera</span><span class="text-white font-medium">${photo.camera}</span></div>` : ""}
+          ${photo.lens   ? `<div class="flex justify-between text-sm"><span class="text-on-surface-variant tracking-wider text-xs uppercase">Lens</span><span class="text-white font-medium">${photo.lens}</span></div>` : ""}
+          <div class="flex justify-between text-sm"><span class="text-on-surface-variant tracking-wider text-xs uppercase">Date</span><span class="text-white font-medium">${photo.date}</span></div>
+          <div class="flex justify-between text-sm"><span class="text-on-surface-variant tracking-wider text-xs uppercase">Location</span><span class="text-white font-medium">${photo.location}</span></div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  showView("detail");
+}
+
+/* ═══════════════════════════════════════════════════════════
+   STATUS NOTIFICATIONS
+═══════════════════════════════════════════════════════════ */
+let statusTimer = null;
+function showStatus(msg, type = "success") {
+  const bar = document.getElementById("status-bar");
+  bar.textContent = msg;
+  bar.className = `status-bar show ${type}`;
+  if (statusTimer) clearTimeout(statusTimer);
+  statusTimer = setTimeout(() => { bar.classList.remove("show"); }, 3500);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════════ */
+document.addEventListener("DOMContentLoaded", () => {
+  const saved = JSON.parse(localStorage.getItem("gh_config") || "{}");
+  // Pre-fill defaults
+  ghConfig = {
+    owner: saved.owner || "Nana77mii",
+    repo:  saved.repo  || "studio-photos",
+    branch: saved.branch || "main",
+    token: sessionStorage.getItem("gh_token") || "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"
+  };
+  document.getElementById("cfg-owner").value  = ghConfig.owner;
+  document.getElementById("cfg-repo").value   = ghConfig.repo;
+  document.getElementById("cfg-branch").value = ghConfig.branch;
+  document.getElementById("cfg-token").value  = ghConfig.token;
+  loadTimeline();
+});
+</script>
+</body>
+</html>
