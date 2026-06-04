@@ -22,11 +22,11 @@
     },
     "yearLabel": {
       "font": "",
-      "size": ""
+      "size": "30"
     },
     "locationHead": {
       "font": "",
-      "size": ""
+      "size": "24"
     },
     "photoCaption": {
       "font": "",
