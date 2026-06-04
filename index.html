@@ -1118,9 +1118,6 @@ async function loadChronicles() {
   if (!container) return;
   let photos = photosCache;
   if (photos.length === 0) {
-    const saved = JSON.parse(localStorage.getItem("gh_config") || "{}");
-    if (!saved.owner || !saved.repo) { container.innerHTML = '<p class="text-on-surface-variant/50 text-xs tracking-widest uppercase">No records yet.</p>'; return; }
-    ghConfig = saved;
     try { photos = await readIndex(); photosCache = photos; } catch { container.innerHTML = '<p class="text-on-surface-variant/50 text-xs">Could not load records.</p>'; return; }
   }
   if (photos.length === 0) { container.innerHTML = '<p class="text-on-surface-variant/50 text-xs tracking-widest uppercase">No records yet.</p>'; return; }
@@ -1170,12 +1167,6 @@ async function loadTimeline() {
   // Try from cache first
   let photos = photosCache;
   if (photos.length === 0) {
-    const saved = JSON.parse(localStorage.getItem("gh_config") || "{}");
-    if (!saved.owner || !saved.repo) {
-      loading.textContent = "Sanctuary not connected to GitHub yet.";
-      return;
-    }
-    ghConfig = saved;
     try {
       photos = await readIndex();
       photosCache = photos;
