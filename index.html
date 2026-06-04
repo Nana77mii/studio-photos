@@ -60,8 +60,9 @@ tailwind.config = {
 body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
 
 /* ── Transitions ── */
-.view { display:none; }
-.view.active { display:block; }
+.view { display:none !important; }
+.view.active { display:block !important; }
+#view-admin-login.active { display:flex !important; }
 
 .fade-in { animation: fadeIn 0.5s cubic-bezier(0.2,0.8,0.2,1) forwards; }
 @keyframes fadeIn { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
