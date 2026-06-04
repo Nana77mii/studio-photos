@@ -338,6 +338,44 @@ body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
       </div>
     </div>
 
+    <!-- Typography Panel -->
+    <div class="ghost-border rounded p-6 mb-8 bg-white/[0.02]">
+      <p class="text-xs tracking-widest uppercase text-on-surface-variant mb-6">Typography</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <div>
+          <label class="text-xs text-on-surface-variant mb-2 block">Heading Font <span class="text-white/20">(titles, hero)</span></label>
+          <div class="flex items-center gap-3">
+            <select id="set-heading-font" class="admin-select text-sm flex-1" onchange="onFontChange('heading')">
+              <!-- populated by JS -->
+            </select>
+            <span id="preview-heading-font" class="text-white text-2xl font-bold w-10 text-center select-none" style="line-height:1">Aa</span>
+          </div>
+        </div>
+        <div>
+          <label class="text-xs text-on-surface-variant mb-2 block">Body Font <span class="text-white/20">(text, nav, labels)</span></label>
+          <div class="flex items-center gap-3">
+            <select id="set-body-font" class="admin-select text-sm flex-1" onchange="onFontChange('body')">
+              <!-- populated by JS -->
+            </select>
+            <span id="preview-body-font" class="text-white text-2xl w-10 text-center select-none" style="line-height:1">Aa</span>
+          </div>
+        </div>
+      </div>
+      <div class="mb-6">
+        <label class="text-xs text-on-surface-variant mb-2 flex justify-between">
+          <span>Base Font Size</span>
+          <span id="font-size-label" class="text-white">16px</span>
+        </label>
+        <input id="set-base-size" type="range" min="12" max="20" step="1" value="16"
+               class="w-full accent-white cursor-pointer"
+               oninput="onBaseSizeChange(this.value)"/>
+        <div class="flex justify-between text-xs text-on-surface-variant/40 mt-1">
+          <span>12px</span><span>16px</span><span>20px</span>
+        </div>
+      </div>
+      <button onclick="saveSettings()" class="btn-primary text-xs">Save Typography</button>
+    </div>
+
     <!-- Upload Panel -->
     <div class="ghost-border rounded p-6 mb-8 bg-white/[0.02]">
       <p class="text-xs tracking-widest uppercase text-on-surface-variant mb-6">Upload New Photo</p>
@@ -445,12 +483,30 @@ let ghConfig = {};
 let selectedFile = null;
 let photosCache = [];
 
+const FONT_OPTIONS = [
+  { value: "",                    label: "Default" },
+  { value: "Inter",               label: "Inter" },
+  { value: "Playfair Display",    label: "Playfair Display" },
+  { value: "Cormorant Garamond",  label: "Cormorant Garamond" },
+  { value: "Space Grotesk",       label: "Space Grotesk" },
+  { value: "DM Serif Display",    label: "DM Serif Display" },
+  { value: "Montserrat",          label: "Montserrat" },
+  { value: "Raleway",             label: "Raleway" },
+  { value: "Bodoni Moda",         label: "Bodoni Moda" },
+  { value: "EB Garamond",         label: "EB Garamond" },
+  { value: "Fraunces",            label: "Fraunces" },
+  { value: "Italiana",            label: "Italiana" },
+];
+
 const DEFAULT_SETTINGS = {
   siteName: "ECHOES' IN PIXELS",
   heroLine1: "ECHOES'",
   heroLine2: "IN PIXELS",
   heroSub: "by Nana7mii — a collection of moments captured in time.",
-  heroBgUrl: ""
+  heroBgUrl: "",
+  headingFont: "",
+  bodyFont: "",
+  baseFontSize: 16,
 };
 let siteSettings = { ...DEFAULT_SETTINGS };
 let pendingHeroBgFile = null;
@@ -833,6 +889,37 @@ async function loadSettings() {
   applySettings(siteSettings);
 }
 
+function loadGoogleFonts(fonts) {
+  const toLoad = fonts.filter(f => f);
+  if (!toLoad.length) return;
+  let link = document.getElementById("custom-font-link");
+  if (!link) {
+    link = document.createElement("link");
+    link.id = "custom-font-link";
+    link.rel = "stylesheet";
+    document.head.appendChild(link);
+  }
+  const families = toLoad.map(f => `family=${f.replace(/ /g, "+")}:ital,wght@0,300;0,400;0,600;0,700;0,900;1,400`).join("&");
+  link.href = `https://fonts.googleapis.com/css2?${families}&display=swap`;
+}
+
+function applyFontSettings(s) {
+  let style = document.getElementById("custom-typography");
+  if (!style) {
+    style = document.createElement("style");
+    style.id = "custom-typography";
+    document.head.appendChild(style);
+  }
+  const hf = s.headingFont || "";
+  const bf = s.bodyFont || "";
+  const sz = Math.min(Math.max(parseInt(s.baseFontSize) || 16, 12), 20);
+  let css = `html { font-size: ${sz}px !important; }\n`;
+  if (hf) css += `h1, h2, h3, h4, .hero-txt, #hero-title, #chronicles-tree .text-8xl { font-family: '${hf}', serif !important; }\n`;
+  if (bf) css += `body, p, span, a, input, select, button, label, .nav-link, #nav-logo, #footer-logo { font-family: '${bf}', sans-serif !important; }\n`;
+  style.textContent = css;
+  loadGoogleFonts([hf, bf]);
+}
+
 function applySettings(s) {
   const nav = document.getElementById("nav-logo");
   const foot = document.getElementById("footer-logo");
@@ -853,21 +940,63 @@ function applySettings(s) {
     if (thumb) { thumb.src = s.heroBgUrl; thumb.style.display = ""; }
     if (empty) empty.style.display = "none";
   }
+
+  applyFontSettings(s);
+}
+
+function buildFontSelects() {
+  const opts = FONT_OPTIONS.map(f => `<option value="${f.value}">${f.label}</option>`).join("");
+  ["set-heading-font", "set-body-font"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el && !el.options.length) el.innerHTML = opts;
+  });
 }
 
 function fillSettingsForm(s) {
-  const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ""; };
-  set("set-site-name", s.siteName || DEFAULT_SETTINGS.siteName);
-  set("set-hero-1",    s.heroLine1 || DEFAULT_SETTINGS.heroLine1);
-  set("set-hero-2",    s.heroLine2 || DEFAULT_SETTINGS.heroLine2);
-  set("set-hero-sub",  s.heroSub   || DEFAULT_SETTINGS.heroSub);
-  set("set-hero-bg-url", s.heroBgUrl || "");
+  buildFontSelects();
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val ?? ""; };
+  set("set-site-name",    s.siteName  || DEFAULT_SETTINGS.siteName);
+  set("set-hero-1",       s.heroLine1 || DEFAULT_SETTINGS.heroLine1);
+  set("set-hero-2",       s.heroLine2 || DEFAULT_SETTINGS.heroLine2);
+  set("set-hero-sub",     s.heroSub   || DEFAULT_SETTINGS.heroSub);
+  set("set-hero-bg-url",  s.heroBgUrl || "");
+  set("set-heading-font", s.headingFont || "");
+  set("set-body-font",    s.bodyFont   || "");
+
+  const sz = Math.min(Math.max(parseInt(s.baseFontSize) || 16, 12), 20);
+  const slider = document.getElementById("set-base-size");
+  const label  = document.getElementById("font-size-label");
+  if (slider) slider.value = sz;
+  if (label)  label.textContent = `${sz}px`;
+
+  updateFontPreview("heading", s.headingFont || "");
+  updateFontPreview("body",    s.bodyFont    || "");
+
   const thumb = document.getElementById("hero-bg-thumb");
   const empty = document.getElementById("hero-bg-thumb-empty");
   if (s.heroBgUrl && thumb) {
     thumb.src = s.heroBgUrl; thumb.style.display = "";
     if (empty) empty.style.display = "none";
   }
+}
+
+function updateFontPreview(type, fontValue) {
+  const el = document.getElementById(`preview-${type}-font`);
+  if (!el) return;
+  el.style.fontFamily = fontValue ? `'${fontValue}', serif` : "";
+  if (fontValue) loadGoogleFonts([fontValue]);
+}
+
+function onFontChange(type) {
+  const val = document.getElementById(`set-${type}-font`).value;
+  updateFontPreview(type, val);
+  const patch = type === "heading" ? { headingFont: val } : { bodyFont: val };
+  applyFontSettings({ ...siteSettings, ...patch });
+}
+
+function onBaseSizeChange(val) {
+  document.getElementById("font-size-label").textContent = `${val}px`;
+  applyFontSettings({ ...siteSettings, baseFontSize: parseInt(val) });
 }
 
 function previewHeroBg(e) {
@@ -925,10 +1054,13 @@ async function saveSettings() {
   }
 
   const settings = {
-    siteName: document.getElementById("set-site-name").value.trim() || DEFAULT_SETTINGS.siteName,
-    heroLine1: document.getElementById("set-hero-1").value.trim() || DEFAULT_SETTINGS.heroLine1,
-    heroLine2: document.getElementById("set-hero-2").value.trim() || DEFAULT_SETTINGS.heroLine2,
-    heroSub:   document.getElementById("set-hero-sub").value.trim() || DEFAULT_SETTINGS.heroSub,
+    siteName:     document.getElementById("set-site-name").value.trim()    || DEFAULT_SETTINGS.siteName,
+    heroLine1:    document.getElementById("set-hero-1").value.trim()       || DEFAULT_SETTINGS.heroLine1,
+    heroLine2:    document.getElementById("set-hero-2").value.trim()       || DEFAULT_SETTINGS.heroLine2,
+    heroSub:      document.getElementById("set-hero-sub").value.trim()     || DEFAULT_SETTINGS.heroSub,
+    headingFont:  document.getElementById("set-heading-font").value        || "",
+    bodyFont:     document.getElementById("set-body-font").value           || "",
+    baseFontSize: parseInt(document.getElementById("set-base-size").value) || 16,
     heroBgUrl
   };
 
