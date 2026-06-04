@@ -133,10 +133,10 @@ body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
 <nav id="main-nav" class="fixed top-0 w-full z-50 bg-[#141313]/80 backdrop-blur-xl border-b border-white/10 flex justify-between items-center h-20 px-6 md:px-20">
   <a onclick="showView('home')" id="nav-logo" class="text-white font-bold tracking-tighter text-sm cursor-pointer select-none">ECHOES' IN PIXELS</a>
   <div class="hidden md:flex items-center gap-6 text-xs tracking-widest font-semibold uppercase">
-    <a onclick="showView('home')" class="text-white border-b border-white pb-0.5 cursor-pointer">Sanctuary</a>
-    <a onclick="showView('chronicles')" class="text-on-surface-variant hover:text-white transition-colors nav-link cursor-pointer">Chronicles</a>
-    <a class="text-on-surface-variant hover:text-white transition-colors nav-link cursor-pointer">About</a>
-    <a onclick="showView('admin-login')" class="text-on-surface-variant hover:text-white transition-colors nav-link cursor-pointer">Admin</a>
+    <a onclick="showView('home')" data-nav="home" class="nav-link text-white border-b border-white pb-0.5 cursor-pointer">Sanctuary</a>
+    <a onclick="showView('chronicles')" data-nav="chronicles" class="nav-link text-on-surface-variant hover:text-white transition-colors cursor-pointer">Chronicles</a>
+    <a class="nav-link text-on-surface-variant hover:text-white transition-colors cursor-pointer">About</a>
+    <a onclick="showView('admin-login')" data-nav="admin-login" class="nav-link text-on-surface-variant hover:text-white transition-colors cursor-pointer">Admin</a>
   </div>
   <button onclick="showView('home')" class="btn-primary text-xs">Inquire</button>
 </nav>
@@ -443,6 +443,14 @@ function showView(name) {
   window.scrollTo(0, 0);
   const footer = document.getElementById("main-footer");
   footer.style.display = (name === "admin" || name === "admin-login") ? "none" : "";
+  document.querySelectorAll("[data-nav]").forEach(el => {
+    const active = el.dataset.nav === name || (name === "detail" && el.dataset.nav === "home");
+    el.classList.toggle("text-white", active);
+    el.classList.toggle("border-b", active);
+    el.classList.toggle("border-white", active);
+    el.classList.toggle("pb-0.5", active);
+    el.classList.toggle("text-on-surface-variant", !active);
+  });
   if (name === "home") loadTimeline();
   if (name === "chronicles") loadChronicles();
   if (name === "admin") { loadConfig(); loadAdminGallery(); fillSettingsForm(siteSettings); }
