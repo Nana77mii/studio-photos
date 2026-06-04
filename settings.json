@@ -5,7 +5,7 @@
   "heroSub": "— a random collection of moments captured in time.",
   "typography": {
     "heroTitle": {
-      "font": "",
+      "font": "Playfair Display",
       "size": "42"
     },
     "heroSub": {
