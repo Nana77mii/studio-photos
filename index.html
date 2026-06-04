@@ -260,8 +260,8 @@ body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
       <div id="drop-zone" class="drop-zone rounded p-10 text-center mb-6 cursor-pointer" onclick="document.getElementById('file-input').click()">
         <span class="material-symbols-outlined text-4xl text-on-surface-variant mb-3 block">upload_file</span>
         <p class="text-sm text-on-surface-variant">Drop photo here or <span class="text-white underline">browse</span></p>
-        <p class="text-xs text-on-surface-variant/50 mt-1">JPG, PNG, WEBP — max 20MB</p>
-        <input id="file-input" type="file" accept="image/*" class="hidden" onchange="handleFileSelect(event)"/>
+        <p class="text-xs text-on-surface-variant/50 mt-1">JPG, CR2, PNG, WEBP — max 50MB</p>
+        <input id="file-input" type="file" accept="image/*,.cr2,.CR2" class="hidden" onchange="handleFileSelect(event)"/>
       </div>
 
       <!-- Preview -->
@@ -513,19 +513,72 @@ function handleFileSelect(e) {
   const file = e.target.files[0];
   if (!file) return;
   setSelectedFile(file);
+  readExif(file);
 }
 
 function setSelectedFile(file) {
   selectedFile = file;
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    document.getElementById("preview-img").src = e.target.result;
-  };
-  reader.readAsDataURL(file);
+  const ext = file.name.split(".").pop().toLowerCase();
+  const isRaw = ext === "cr2";
+  const previewImg = document.getElementById("preview-img");
+  if (isRaw) {
+    previewImg.src = "";
+    previewImg.style.display = "none";
+    let placeholder = document.getElementById("raw-placeholder");
+    if (!placeholder) {
+      placeholder = document.createElement("div");
+      placeholder.id = "raw-placeholder";
+      placeholder.className = "flex flex-col items-center justify-center h-32 text-on-surface-variant";
+      placeholder.innerHTML = '<span class="material-symbols-outlined text-5xl mb-2">camera</span><span class="text-xs">RAW — preview not available</span>';
+      previewImg.parentNode.insertBefore(placeholder, previewImg);
+    }
+    placeholder.style.display = "flex";
+  } else {
+    previewImg.style.display = "";
+    const ph = document.getElementById("raw-placeholder");
+    if (ph) ph.style.display = "none";
+    const reader = new FileReader();
+    reader.onload = (e) => { previewImg.src = e.target.result; };
+    reader.readAsDataURL(file);
+  }
   document.getElementById("preview-name").textContent = file.name;
   document.getElementById("preview-size").textContent = (file.size / 1024 / 1024).toFixed(2) + " MB";
   document.getElementById("upload-preview").classList.remove("hidden");
   document.getElementById("drop-zone").classList.add("hidden");
+}
+
+async function readExif(file) {
+  if (typeof exifr === "undefined") return;
+  try {
+    const exif = await exifr.parse(file, {
+      pick: ["DateTimeOriginal","Make","Model","LensModel","FNumber","ExposureTime","ISO","FocalLength"]
+    });
+    if (!exif) return;
+    if (exif.DateTimeOriginal) {
+      const d = new Date(exif.DateTimeOriginal);
+      document.getElementById("meta-date").value = d.toISOString().slice(0, 10);
+    }
+    if (exif.Make || exif.Model) {
+      const make = (exif.Make || "").trim();
+      const model = (exif.Model || "").trim();
+      const camera = model.toLowerCase().startsWith(make.toLowerCase()) ? model : `${make} ${model}`.trim();
+      document.getElementById("meta-camera").value = camera.toUpperCase();
+    }
+    const lensParts = [];
+    if (exif.LensModel) lensParts.push(exif.LensModel.trim());
+    const settings = [];
+    if (exif.FocalLength) settings.push(`${exif.FocalLength}mm`);
+    if (exif.FNumber) settings.push(`f/${exif.FNumber}`);
+    if (exif.ExposureTime) {
+      const et = exif.ExposureTime;
+      settings.push(et < 1 ? `1/${Math.round(1 / et)}s` : `${et}s`);
+    }
+    if (exif.ISO) settings.push(`ISO ${exif.ISO}`);
+    if (settings.length) lensParts.push(settings.join("  "));
+    if (lensParts.length) document.getElementById("meta-lens").value = lensParts.join(" | ");
+  } catch (err) {
+    console.warn("EXIF read failed:", err);
+  }
 }
 
 function clearUpload() {
@@ -542,7 +595,7 @@ dz.addEventListener("dragleave", () => dz.classList.remove("drag-over"));
 dz.addEventListener("drop", e => {
   e.preventDefault(); dz.classList.remove("drag-over");
   const file = e.dataTransfer.files[0];
-  if (file && file.type.startsWith("image/")) setSelectedFile(file);
+  if (file) { setSelectedFile(file); readExif(file); }
 });
 
 /* ═══════════════════════════════════════════════════════════
@@ -832,5 +885,6 @@ document.addEventListener("DOMContentLoaded", () => {
   loadTimeline();
 });
 </script>
+<script src="https://cdn.jsdelivr.net/npm/exifr/dist/full.umd.cjs"></script>
 </body>
 </html>
