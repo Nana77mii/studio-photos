@@ -85,12 +85,23 @@ body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
 }
 .gallery-card:hover .gallery-overlay { opacity:1; }
 
-/* ── Photo Grid (mobile-first, avoids relying on Tailwind for JS-injected classes) ── */
-.photo-grid { width:100%; column-gap:1.25rem; columns:1; overflow:hidden; }
-@media (min-width:640px) { .photo-grid { columns:2; } }
-.photo-grid .gallery-card { break-inside:avoid; margin-bottom:1.25rem; max-width:100%; }
+/* ── Photo Grid ── */
+.photo-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:1.25rem; width:100%; }
+@media (max-width:639px) { .photo-grid { grid-template-columns:1fr; } }
+.photo-grid .gallery-card { max-width:100%; }
+.photo-card-wide { grid-column:span 2; }
+@media (max-width:639px) { .photo-card-wide { grid-column:span 1; } }
 .photo-grid-single { width:100%; max-width:32rem; }
 @media (max-width:639px) { .photo-grid-single { max-width:100%; } }
+
+/* ── Edit Mode ── */
+.edit-card-ctrl { position:absolute; inset-x:0; bottom:0; background:rgba(0,0,0,0.82); padding:6px 8px; display:flex; align-items:center; justify-content:space-between; gap:6px; z-index:20; }
+.ecb { background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.15); color:#fff; border-radius:3px; padding:2px 7px; font-size:10px; letter-spacing:.04em; cursor:pointer; transition:background .15s; }
+.ecb:hover { background:rgba(255,255,255,0.22); }
+.ecb.on { background:rgba(255,255,255,0.9); color:#141313; }
+.gallery-card.edit-active { cursor:grab; outline:1px dashed rgba(255,255,255,0.28); }
+.gallery-card.edit-active:active { cursor:grabbing; }
+.gallery-card.drag-over { outline:2px solid rgba(255,255,255,0.7); }
 
 .ghost-border { border:1px solid rgba(255,255,255,0.08); }
 
@@ -163,6 +174,27 @@ body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
       <span class="material-symbols-outlined text-base animate-spin">autorenew</span> Preparing…
     </div>
   </div>
+</div>
+
+<!-- Edit Layout button (visible on Sanctuary when admin logged in) -->
+<button id="edit-layout-btn" onclick="enterEditMode()"
+  class="hidden fixed bottom-6 right-6 z-[150] btn-ghost text-xs flex items-center gap-2">
+  <span class="material-symbols-outlined text-sm">edit</span> Edit Layout
+</button>
+
+<!-- Edit mode bar (shown while editing) -->
+<div id="edit-bar" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] bg-[#1a1919] border border-white/20 rounded-full px-6 py-3 flex items-center gap-4 shadow-2xl">
+  <span class="text-xs text-white/50 tracking-widest uppercase">Layout Edit</span>
+  <div class="w-px h-4 bg-white/20"></div>
+  <button onclick="saveLayout()" class="text-xs text-white font-semibold hover:opacity-70 transition-opacity flex items-center gap-1.5">
+    <span class="material-symbols-outlined text-sm">save</span> Save
+  </button>
+  <div id="edit-save-prog" class="hidden text-xs text-white/40 flex items-center gap-1">
+    <span class="material-symbols-outlined text-sm animate-spin">autorenew</span>
+  </div>
+  <button onclick="exitEditMode()" class="text-xs text-white/40 hover:text-white transition-colors flex items-center gap-1">
+    <span class="material-symbols-outlined text-sm">close</span> Cancel
+  </button>
 </div>
 
 <!-- Edit Photo Modal -->
@@ -339,7 +371,12 @@ body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
     <div class="flex justify-between items-start mb-12">
       <div>
         <p class="text-xs tracking-widest uppercase text-on-surface-variant mb-1">Admin Dashboard</p>
-        <h2 class="text-4xl font-bold tracking-tight text-white">Manage Sanctuary</h2>
+        <div class="flex items-baseline justify-between mb-2">
+          <h2 class="text-4xl font-bold tracking-tight text-white">Manage Sanctuary</h2>
+          <button onclick="adminLogout()" class="text-xs text-on-surface-variant/50 hover:text-white transition-colors flex items-center gap-1">
+            <span class="material-symbols-outlined text-sm">logout</span> Sign out
+          </button>
+        </div>
       </div>
       <div class="flex items-center gap-3">
         <button onclick="showView('home')" class="btn-ghost text-xs">← View Site</button>
@@ -556,6 +593,9 @@ let ghConfig = {};
 let selectedFile = null;
 let photosCache = [];
 let editingPhotoId = null;
+let editModeActive = false;
+let editLayouts = {};      // id → { size:1|2, order:number }
+let editDragSrc = null;
 
 const FONT_OPTIONS = [
   { value: "",                    label: "Default" },
@@ -590,6 +630,7 @@ const DEFAULT_SETTINGS = {
   heroSub: "by Nana7mii — a collection of moments captured in time.",
   heroBgUrl: "",
   typography: {},
+  photoLayouts: {},
 };
 let siteSettings = { ...DEFAULT_SETTINGS };
 let pendingHeroBgFile = null;
@@ -619,6 +660,7 @@ function showView(name) {
     }
   });
   if (name === "home") loadTimeline();
+  updateEditLayoutBtn();
   if (name === "chronicles") loadChronicles();
   if (name === "admin") { loadConfig(); loadAdminGallery(); fillSettingsForm(siteSettings); }
 }
@@ -654,6 +696,14 @@ function goToSanctuary(accId) {
 /* ═══════════════════════════════════════════════════════════
    AUTH
 ═══════════════════════════════════════════════════════════ */
+function adminLogout() {
+  localStorage.removeItem("gh_token");
+  ghConfig.token = "";
+  document.getElementById("cfg-token").value = "";
+  showView("home");
+  updateEditLayoutBtn();
+}
+
 function tryLogin() {
   const pw = document.getElementById("admin-pw-input").value;
   const err = document.getElementById("login-error");
@@ -681,14 +731,14 @@ function saveConfig() {
     owner: ghConfig.owner, repo: ghConfig.repo, branch: ghConfig.branch
   }));
   // Token stored separately (slightly safer UX pattern)
-  sessionStorage.setItem("gh_token", ghConfig.token);
+  localStorage.setItem("gh_token", ghConfig.token);
   showStatus("Config saved!", "success");
   loadAdminGallery();
 }
 
 function loadConfig() {
   const saved = JSON.parse(localStorage.getItem("gh_config") || "{}");
-  const token = sessionStorage.getItem("gh_token") || "";
+  const token = localStorage.getItem("gh_token") || "";
   ghConfig = { ...saved, token };
   if (saved.owner) document.getElementById("cfg-owner").value = saved.owner;
   if (saved.repo)  document.getElementById("cfg-repo").value  = saved.repo;
@@ -1352,54 +1402,206 @@ async function loadChronicles() {
 async function loadTimeline() {
   const container = document.getElementById("timeline-container");
   const loading = document.getElementById("timeline-loading");
-
-  // Try from cache first
-  let photos = photosCache;
-  if (photos.length === 0) {
-    try {
-      photos = await readIndex();
-      photosCache = photos;
-    } catch {
-      loading.textContent = "Could not load portfolio.";
-      return;
-    }
-  }
-
-  if (photos.length === 0) {
-    loading.textContent = "No photos yet.";
+  if (loading) { loading.style.display = ""; loading.textContent = "Loading portfolio…"; }
+  try {
+    const photos = await readIndex();
+    photosCache = photos;
+  } catch {
+    if (loading) loading.textContent = "Could not load portfolio.";
     return;
   }
+  if (photosCache.length === 0) {
+    if (loading) loading.textContent = "No photos yet.";
+    return;
+  }
+  rerenderTimeline();
+}
 
-  loading.style.display = "none";
+function renderPhotoGrid(photos) {
+  const layouts = editModeActive ? editLayouts : (siteSettings.photoLayouts || {});
 
-  // Group by year → location (location+year combo)
+  // Apply saved order
+  const sorted = [...photos].sort((a, b) =>
+    (layouts[a.id]?.order ?? 999) - (layouts[b.id]?.order ?? 999)
+  );
+
+  const card = (p) => {
+    const size = layouts[p.id]?.size ?? 1;
+    const isWide = size === 2;
+    const editCtrl = editModeActive ? `
+      <div class="edit-card-ctrl">
+        <div class="flex gap-1">
+          <button class="ecb" onclick="event.stopPropagation();movePhoto('${p.id}',-1)" title="Move left">←</button>
+          <button class="ecb" onclick="event.stopPropagation();movePhoto('${p.id}',1)" title="Move right">→</button>
+        </div>
+        <div class="flex gap-1">
+          <button class="ecb ${size===1?'on':''}" onclick="event.stopPropagation();setPhotoSize('${p.id}',1)">1×</button>
+          <button class="ecb ${size===2?'on':''}" onclick="event.stopPropagation();setPhotoSize('${p.id}',2)">2×</button>
+        </div>
+      </div>` : '';
+    return `
+      <div class="gallery-card ghost-border cursor-pointer ${isWide ? 'photo-card-wide' : ''} ${editModeActive ? 'edit-active' : ''}"
+           onclick="${editModeActive ? '' : `showDetail('${p.id}')`}"
+           ${editModeActive ? `draggable="true" ondragstart="onEditDragStart(event,'${p.id}')" ondragover="onEditDragOver(event)" ondragleave="onEditDragLeave(event)" ondrop="onEditDrop(event,'${p.id}')"` : ''}>
+        <img src="${p.url}" alt="${p.location}" class="gallery-img" loading="lazy"/>
+        <div class="gallery-overlay absolute inset-0 flex flex-col justify-end p-5">
+          <div class="photo-caption text-xs tracking-widest text-on-surface-variant flex justify-between items-end">
+            <div><span class="block text-white mb-1">${p.date} / ${p.category}</span><span>${p.location}</span></div>
+            <div class="text-right opacity-80"><span class="block">${p.camera||""}</span><span>${p.lens||""}</span></div>
+          </div>
+        </div>
+        ${editCtrl}
+      </div>`;
+  };
+
+  if (!editModeActive && sorted.length === 1) {
+    return `<div class="photo-grid-single">${card(sorted[0])}</div>`;
+  }
+  return `<div class="photo-grid">${sorted.map(p => card(p)).join("")}</div>`;
+}
+
+function toggleAccordion(id, header) {
+  const body = document.getElementById(id);
+  body.classList.toggle("open");
+  header.classList.toggle("open");
+}
+
+/* ── Edit Layout Mode ── */
+function isAdminLoggedIn() { return !!(localStorage.getItem("gh_token")); }
+
+function updateEditLayoutBtn() {
+  const btn = document.getElementById("edit-layout-btn");
+  if (!btn) return;
+  const show = isAdminLoggedIn() && currentView === "home" && !editModeActive;
+  btn.classList.toggle("hidden", !show);
+}
+
+function enterEditMode() {
+  editModeActive = true;
+  editLayouts = {};
+  // Seed editLayouts from saved settings + current photosCache order
+  const groups = {};
+  photosCache.forEach(p => {
+    const k = p.year + "||" + p.location;
+    if (!groups[k]) groups[k] = [];
+    groups[k].push(p);
+  });
+  Object.values(groups).forEach(grp => {
+    grp.forEach((p, i) => {
+      editLayouts[p.id] = {
+        size:  siteSettings.photoLayouts?.[p.id]?.size  ?? 1,
+        order: siteSettings.photoLayouts?.[p.id]?.order ?? i,
+      };
+    });
+  });
+  document.getElementById("edit-layout-btn").classList.add("hidden");
+  document.getElementById("edit-bar").classList.remove("hidden");
+  rerenderTimeline();
+}
+
+function exitEditMode() {
+  editModeActive = false;
+  editLayouts = {};
+  document.getElementById("edit-bar").classList.add("hidden");
+  updateEditLayoutBtn();
+  rerenderTimeline();
+}
+
+async function saveLayout() {
+  const prog = document.getElementById("edit-save-prog");
+  prog.classList.remove("hidden");
+  try {
+    const layouts = { ...editLayouts };
+    siteSettings = { ...siteSettings, photoLayouts: layouts };
+    localStorage.setItem("site_settings", JSON.stringify(siteSettings));
+    const cfg = getConfig();
+    if (cfg.token) {
+      const json = JSON.stringify(siteSettings, null, 2);
+      const b64 = btoa(unescape(encodeURIComponent(json)));
+      const sha = await getFileSha("settings.json");
+      await putFile("settings.json", b64, "Update photo layout", sha);
+    }
+    exitEditMode();
+    showStatus("Layout saved!", "success");
+  } catch (err) {
+    showStatus("Layout save failed: " + err.message, "error");
+  } finally {
+    prog.classList.add("hidden");
+  }
+}
+
+function setPhotoSize(id, size) {
+  editLayouts[id] = { ...(editLayouts[id] || { order: 0 }), size };
+  rerenderTimeline();
+}
+
+function movePhoto(id, direction) {
+  // Find group of this photo
+  const p = photosCache.find(x => x.id === id);
+  if (!p) return;
+  const grpKey = p.year + "||" + p.location;
+  const grp = photosCache
+    .filter(x => x.year === p.year && x.location === p.location)
+    .sort((a, b) => (editLayouts[a.id]?.order ?? 0) - (editLayouts[b.id]?.order ?? 0));
+  const idx = grp.findIndex(x => x.id === id);
+  const swapIdx = idx + direction;
+  if (swapIdx < 0 || swapIdx >= grp.length) return;
+  const swapId = grp[swapIdx].id;
+  const tmpOrder = editLayouts[id].order;
+  editLayouts[id].order = editLayouts[swapId].order;
+  editLayouts[swapId].order = tmpOrder;
+  rerenderTimeline();
+}
+
+function onEditDragStart(e, id) {
+  editDragSrc = id;
+  e.dataTransfer.effectAllowed = "move";
+}
+function onEditDragOver(e) { e.preventDefault(); e.currentTarget.classList.add("drag-over"); }
+function onEditDragLeave(e) { e.currentTarget.classList.remove("drag-over"); }
+function onEditDrop(e, targetId) {
+  e.preventDefault();
+  e.currentTarget.classList.remove("drag-over");
+  if (!editDragSrc || editDragSrc === targetId) return;
+  const srcP = photosCache.find(x => x.id === editDragSrc);
+  const tgtP = photosCache.find(x => x.id === targetId);
+  if (!srcP || !tgtP) return;
+  // Only swap within same group
+  if (srcP.year !== tgtP.year || srcP.location !== tgtP.location) return;
+  const tmpOrder = editLayouts[editDragSrc].order;
+  editLayouts[editDragSrc].order = editLayouts[targetId].order;
+  editLayouts[targetId].order = tmpOrder;
+  editDragSrc = null;
+  rerenderTimeline();
+}
+
+function rerenderTimeline() {
+  const container = document.getElementById("timeline-container");
+  const loading = document.getElementById("timeline-loading");
+  const photos = photosCache;
+  if (!container || photos.length === 0) return;
+  if (loading) loading.style.display = "none";
   const byYear = {};
   photos.forEach(p => {
     if (!byYear[p.year]) byYear[p.year] = {};
-    const key = `${p.location}`;
-    if (!byYear[p.year][key]) byYear[p.year][key] = [];
-    byYear[p.year][key].push(p);
+    if (!byYear[p.year][p.location]) byYear[p.year][p.location] = [];
+    byYear[p.year][p.location].push(p);
   });
-
-  const years = Object.keys(byYear).sort((a,b) => b - a);
-
+  const years = Object.keys(byYear).sort((a, b) => b - a);
   container.innerHTML = years.map((year, yi) => `
-    <div class="mb-40 fade-in" style="animation-delay:${yi*0.1}s">
+    <div class="mb-40 ${editModeActive ? '' : 'fade-in'}" ${editModeActive ? '' : `style="animation-delay:${yi*0.1}s"`}>
       <h2 class="timeline-year text-5xl md:text-9xl font-bold text-white tracking-tighter leading-none mb-6 md:mb-12">${year}</h2>
-      ${Object.entries(byYear[year]).map(([loc, lPhotos], li) => {
-        const firstPhoto = lPhotos[0];
-        const dateStr = firstPhoto.date;
-        const accordionId = `acc-${year}-${li}`;
-        const isFirst = true;
+      ${Object.entries(byYear[year]).map(([loc, lPhotos]) => {
+        const accordionId = "acc-" + year + "-" + loc.replace(/[^a-z0-9]/gi, "");
         return `
           <div class="mb-8">
-            <div class="accordion-header ${isFirst ? 'open' : ''} cursor-pointer group flex items-center gap-4 mb-0"
+            <div class="accordion-header open cursor-pointer group flex items-center gap-4 mb-0"
                  onclick="toggleAccordion('${accordionId}', this)">
-              <p class="timeline-location text-xl md:text-5xl font-bold text-white tracking-tight">${loc} — ${dateStr}</p>
+              <p class="timeline-location text-xl md:text-5xl font-bold text-white tracking-tight">${loc} — ${lPhotos[0].date}</p>
               <div class="h-px bg-white/10 flex-grow"></div>
               <span class="material-symbols-outlined text-2xl text-on-surface-variant acc-icon group-hover:text-white transition-colors">add</span>
             </div>
-            <div id="${accordionId}" class="accordion-body ${isFirst ? 'open' : ''}">
+            <div id="${accordionId}" class="accordion-body open">
               <div class="accordion-inner pt-8">
                 ${renderPhotoGrid(lPhotos)}
               </div>
@@ -1408,30 +1610,6 @@ async function loadTimeline() {
       }).join("")}
     </div>
   `).join("");
-}
-
-function renderPhotoGrid(photos) {
-  const card = (p) => `
-    <div class="gallery-card ghost-border cursor-pointer" onclick="showDetail('${p.id}')">
-      <img src="${p.url}" alt="${p.location}" class="gallery-img" loading="lazy"/>
-      <div class="gallery-overlay absolute inset-0 flex flex-col justify-end p-5">
-        <div class="photo-caption text-xs tracking-widest text-on-surface-variant flex justify-between items-end">
-          <div><span class="block text-white mb-1">${p.date} / ${p.category}</span><span>${p.location}</span></div>
-          <div class="text-right opacity-80"><span class="block">${p.camera||""}</span><span>${p.lens||""}</span></div>
-        </div>
-      </div>
-    </div>`;
-
-  if (photos.length === 1) {
-    return `<div class="photo-grid-single">${card(photos[0])}</div>`;
-  }
-  return `<div class="photo-grid">${photos.map(p => card(p)).join("")}</div>`;
-}
-
-function toggleAccordion(id, header) {
-  const body = document.getElementById(id);
-  body.classList.toggle("open");
-  header.classList.toggle("open");
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1599,7 +1777,7 @@ document.addEventListener("DOMContentLoaded", () => {
     owner: saved.owner || "Nana77mii",
     repo:  saved.repo  || "studio-photos",
     branch: saved.branch || "main",
-    token: sessionStorage.getItem("gh_token") || ""
+    token: localStorage.getItem("gh_token") || ""
   };
   document.getElementById("cfg-owner").value  = ghConfig.owner;
   document.getElementById("cfg-repo").value   = ghConfig.repo;
