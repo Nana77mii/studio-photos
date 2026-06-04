@@ -356,40 +356,13 @@ body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
 
     <!-- Typography Panel -->
     <div class="ghost-border rounded p-6 mb-8 bg-white/[0.02]">
-      <p class="text-xs tracking-widest uppercase text-on-surface-variant mb-6">Typography</p>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        <div>
-          <label class="text-xs text-on-surface-variant mb-2 block">Heading Font <span class="text-white/20">(titles, hero)</span></label>
-          <div class="flex items-center gap-3">
-            <select id="set-heading-font" class="admin-select text-sm flex-1" onchange="onFontChange('heading')">
-              <!-- populated by JS -->
-            </select>
-            <span id="preview-heading-font" class="text-white text-2xl font-bold w-10 text-center select-none" style="line-height:1">Aa</span>
-          </div>
-        </div>
-        <div>
-          <label class="text-xs text-on-surface-variant mb-2 block">Body Font <span class="text-white/20">(text, nav, labels)</span></label>
-          <div class="flex items-center gap-3">
-            <select id="set-body-font" class="admin-select text-sm flex-1" onchange="onFontChange('body')">
-              <!-- populated by JS -->
-            </select>
-            <span id="preview-body-font" class="text-white text-2xl w-10 text-center select-none" style="line-height:1">Aa</span>
-          </div>
-        </div>
+      <p class="text-xs tracking-widest uppercase text-on-surface-variant mb-1">Typography</p>
+      <p class="text-xs text-on-surface-variant/40 mb-6">Font family &amp; size per element. Leave size blank to keep default.</p>
+      <div class="mb-2 hidden sm:grid gap-x-3 text-xs text-on-surface-variant/40 tracking-widest uppercase pb-2 border-b border-white/5" style="grid-template-columns:140px 1fr 80px 28px">
+        <span>Element</span><span>Font</span><span>Size</span><span></span>
       </div>
-      <div class="mb-6">
-        <label class="text-xs text-on-surface-variant mb-2 flex justify-between">
-          <span>Base Font Size</span>
-          <span id="font-size-label" class="text-white">16px</span>
-        </label>
-        <input id="set-base-size" type="range" min="12" max="20" step="1" value="16"
-               class="w-full accent-white cursor-pointer"
-               oninput="onBaseSizeChange(this.value)"/>
-        <div class="flex justify-between text-xs text-on-surface-variant/40 mt-1">
-          <span>12px</span><span>16px</span><span>20px</span>
-        </div>
-      </div>
-      <button onclick="saveSettings()" class="btn-primary text-xs">Save Typography</button>
+      <div id="typo-rows"><!-- populated by JS --></div>
+      <button onclick="saveSettings()" class="btn-primary text-xs mt-6">Save Typography</button>
     </div>
 
     <!-- Upload Panel -->
@@ -514,15 +487,24 @@ const FONT_OPTIONS = [
   { value: "Italiana",            label: "Italiana" },
 ];
 
+const TYPO_ELEMENTS = [
+  { key: "heroTitle",    label: "Hero Title",       selector: "#hero-title" },
+  { key: "heroSub",      label: "Hero Subtitle",    selector: "#hero-sub" },
+  { key: "siteName",     label: "Site Name",        selector: "#nav-logo, #footer-logo" },
+  { key: "navLinks",     label: "Nav Links",        selector: ".nav-link, [data-nav]" },
+  { key: "yearLabel",    label: "Year Label",       selector: ".timeline-year" },
+  { key: "locationHead", label: "Location Header",  selector: ".timeline-location" },
+  { key: "photoCaption", label: "Photo Caption",    selector: ".photo-caption" },
+  { key: "bodyText",     label: "Body Text",        selector: "p, .meta-text" },
+];
+
 const DEFAULT_SETTINGS = {
   siteName: "ECHOES' IN PIXELS",
   heroLine1: "ECHOES'",
   heroLine2: "IN PIXELS",
   heroSub: "by Nana7mii — a collection of moments captured in time.",
   heroBgUrl: "",
-  headingFont: "",
-  bodyFont: "",
-  baseFontSize: 16,
+  typography: {},
 };
 let siteSettings = { ...DEFAULT_SETTINGS };
 let pendingHeroBgFile = null;
@@ -939,14 +921,18 @@ function applyFontSettings(s) {
     style.id = "custom-typography";
     document.head.appendChild(style);
   }
-  const hf = s.headingFont || "";
-  const bf = s.bodyFont || "";
-  const sz = Math.min(Math.max(parseInt(s.baseFontSize) || 16, 12), 20);
-  let css = `html { font-size: ${sz}px !important; }\n`;
-  if (hf) css += `h1, h2, h3, h4, .hero-txt, #hero-title, #chronicles-tree .text-8xl { font-family: '${hf}', serif !important; }\n`;
-  if (bf) css += `body, p, span, a, input, select, button, label, .nav-link, #nav-logo, #footer-logo { font-family: '${bf}', sans-serif !important; }\n`;
+  const typo = s.typography || {};
+  const fontsToLoad = [];
+  let css = "";
+  TYPO_ELEMENTS.forEach(({ key, selector }) => {
+    const t = typo[key] || {};
+    let rules = "";
+    if (t.font) { rules += `font-family:'${t.font}',sans-serif!important;`; fontsToLoad.push(t.font); }
+    if (t.size && parseInt(t.size) > 0) rules += `font-size:${parseInt(t.size)}px!important;`;
+    if (rules) css += `${selector}{${rules}}\n`;
+  });
   style.textContent = css;
-  loadGoogleFonts([hf, bf]);
+  loadGoogleFonts([...new Set(fontsToLoad)]);
 }
 
 function applySettings(s) {
@@ -973,33 +959,42 @@ function applySettings(s) {
   applyFontSettings(s);
 }
 
-function buildFontSelects() {
+function buildTypoRows() {
+  const container = document.getElementById("typo-rows");
+  if (!container || container.children.length) return;
   const opts = FONT_OPTIONS.map(f => `<option value="${f.value}">${f.label}</option>`).join("");
-  ["set-heading-font", "set-body-font"].forEach(id => {
-    const el = document.getElementById(id);
-    if (el && !el.options.length) el.innerHTML = opts;
-  });
+  container.innerHTML = TYPO_ELEMENTS.map(({ key, label }) => `
+    <div class="grid items-center gap-x-3 gap-y-1 py-3 border-b border-white/5 last:border-0" style="grid-template-columns:140px 1fr 80px 28px">
+      <span class="text-xs text-on-surface-variant col-span-full sm:col-span-1 mb-1 sm:mb-0">${label}</span>
+      <select id="typo-${key}-font" class="admin-select text-xs" onchange="onTypoChange('${key}')">
+        ${opts}
+      </select>
+      <div class="flex items-center gap-1">
+        <input id="typo-${key}-size" type="number" min="8" max="300" placeholder="auto"
+               class="admin-input text-xs text-center px-2" style="width:52px"
+               oninput="onTypoChange('${key}')"/>
+        <span class="text-xs text-on-surface-variant/30">px</span>
+      </div>
+      <span id="typo-${key}-preview" class="text-white text-lg text-center select-none leading-none">Aa</span>
+    </div>`).join("");
 }
 
 function fillSettingsForm(s) {
-  buildFontSelects();
+  buildTypoRows();
   const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val ?? ""; };
-  set("set-site-name",    s.siteName  || DEFAULT_SETTINGS.siteName);
-  set("set-hero-1",       s.heroLine1 || DEFAULT_SETTINGS.heroLine1);
-  set("set-hero-2",       s.heroLine2 || DEFAULT_SETTINGS.heroLine2);
-  set("set-hero-sub",     s.heroSub   || DEFAULT_SETTINGS.heroSub);
-  set("set-hero-bg-url",  s.heroBgUrl || "");
-  set("set-heading-font", s.headingFont || "");
-  set("set-body-font",    s.bodyFont   || "");
+  set("set-site-name",   s.siteName  || DEFAULT_SETTINGS.siteName);
+  set("set-hero-1",      s.heroLine1 || DEFAULT_SETTINGS.heroLine1);
+  set("set-hero-2",      s.heroLine2 || DEFAULT_SETTINGS.heroLine2);
+  set("set-hero-sub",    s.heroSub   || DEFAULT_SETTINGS.heroSub);
+  set("set-hero-bg-url", s.heroBgUrl || "");
 
-  const sz = Math.min(Math.max(parseInt(s.baseFontSize) || 16, 12), 20);
-  const slider = document.getElementById("set-base-size");
-  const label  = document.getElementById("font-size-label");
-  if (slider) slider.value = sz;
-  if (label)  label.textContent = `${sz}px`;
-
-  updateFontPreview("heading", s.headingFont || "");
-  updateFontPreview("body",    s.bodyFont    || "");
+  const typo = s.typography || {};
+  TYPO_ELEMENTS.forEach(({ key }) => {
+    const t = typo[key] || {};
+    set(`typo-${key}-font`, t.font || "");
+    set(`typo-${key}-size`, t.size || "");
+    updateTypoPreview(key, t.font || "");
+  });
 
   const thumb = document.getElementById("hero-bg-thumb");
   const empty = document.getElementById("hero-bg-thumb-empty");
@@ -1009,23 +1004,19 @@ function fillSettingsForm(s) {
   }
 }
 
-function updateFontPreview(type, fontValue) {
-  const el = document.getElementById(`preview-${type}-font`);
+function updateTypoPreview(key, fontValue) {
+  const el = document.getElementById(`typo-${key}-preview`);
   if (!el) return;
-  el.style.fontFamily = fontValue ? `'${fontValue}', serif` : "";
+  el.style.fontFamily = fontValue ? `'${fontValue}',serif` : "";
   if (fontValue) loadGoogleFonts([fontValue]);
 }
 
-function onFontChange(type) {
-  const val = document.getElementById(`set-${type}-font`).value;
-  updateFontPreview(type, val);
-  const patch = type === "heading" ? { headingFont: val } : { bodyFont: val };
-  applyFontSettings({ ...siteSettings, ...patch });
-}
-
-function onBaseSizeChange(val) {
-  document.getElementById("font-size-label").textContent = `${val}px`;
-  applyFontSettings({ ...siteSettings, baseFontSize: parseInt(val) });
+function onTypoChange(key) {
+  const font = document.getElementById(`typo-${key}-font`)?.value || "";
+  const size = document.getElementById(`typo-${key}-size`)?.value || "";
+  updateTypoPreview(key, font);
+  siteSettings = { ...siteSettings, typography: { ...(siteSettings.typography || {}), [key]: { font, size } } };
+  applyFontSettings(siteSettings);
 }
 
 function previewHeroBg(e) {
@@ -1087,9 +1078,10 @@ async function saveSettings() {
     heroLine1:    document.getElementById("set-hero-1").value.trim()       || DEFAULT_SETTINGS.heroLine1,
     heroLine2:    document.getElementById("set-hero-2").value.trim()       || DEFAULT_SETTINGS.heroLine2,
     heroSub:      document.getElementById("set-hero-sub").value.trim()     || DEFAULT_SETTINGS.heroSub,
-    headingFont:  document.getElementById("set-heading-font").value        || "",
-    bodyFont:     document.getElementById("set-body-font").value           || "",
-    baseFontSize: parseInt(document.getElementById("set-base-size").value) || 16,
+    typography: Object.fromEntries(TYPO_ELEMENTS.map(({ key }) => [key, {
+      font: document.getElementById(`typo-${key}-font`)?.value || "",
+      size: document.getElementById(`typo-${key}-size`)?.value || "",
+    }])),
     heroBgUrl
   };
 
@@ -1206,7 +1198,7 @@ async function loadTimeline() {
 
   container.innerHTML = years.map((year, yi) => `
     <div class="mb-40 fade-in" style="animation-delay:${yi*0.1}s">
-      <h2 class="text-5xl md:text-9xl font-bold text-white tracking-tighter leading-none mb-6 md:mb-12">${year}</h2>
+      <h2 class="timeline-year text-5xl md:text-9xl font-bold text-white tracking-tighter leading-none mb-6 md:mb-12">${year}</h2>
       ${Object.entries(byYear[year]).map(([loc, lPhotos], li) => {
         const firstPhoto = lPhotos[0];
         const dateStr = firstPhoto.date;
@@ -1216,7 +1208,7 @@ async function loadTimeline() {
           <div class="mb-8">
             <div class="accordion-header ${isFirst ? 'open' : ''} cursor-pointer group flex items-center gap-4 mb-0"
                  onclick="toggleAccordion('${accordionId}', this)">
-              <p class="text-xl md:text-5xl font-bold text-white tracking-tight">${loc} — ${dateStr}</p>
+              <p class="timeline-location text-xl md:text-5xl font-bold text-white tracking-tight">${loc} — ${dateStr}</p>
               <div class="h-px bg-white/10 flex-grow"></div>
               <span class="material-symbols-outlined text-2xl text-on-surface-variant acc-icon group-hover:text-white transition-colors">add</span>
             </div>
@@ -1236,7 +1228,7 @@ function renderPhotoGrid(photos) {
     <div class="gallery-card ghost-border cursor-pointer break-inside-avoid mb-5 ${extra}" onclick="showDetail('${p.id}')">
       <img src="${p.url}" alt="${p.location}" class="w-full h-auto block gallery-img" loading="lazy"/>
       <div class="gallery-overlay absolute inset-0 flex flex-col justify-end p-5">
-        <div class="text-xs tracking-widest text-on-surface-variant flex justify-between items-end">
+        <div class="photo-caption text-xs tracking-widest text-on-surface-variant flex justify-between items-end">
           <div><span class="block text-white mb-1">${p.date} / ${p.category}</span><span>${p.location}</span></div>
           <div class="text-right opacity-80"><span class="block">${p.camera||""}</span><span>${p.lens||""}</span></div>
         </div>
