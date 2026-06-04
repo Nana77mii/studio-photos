@@ -6,11 +6,11 @@
   "typography": {
     "heroTitle": {
       "font": "Cormorant Garamond",
-      "size": "42"
+      "size": "54"
     },
     "heroSub": {
       "font": "Cormorant Garamond",
-      "size": "18"
+      "size": "24"
     },
     "siteName": {
       "font": "",
