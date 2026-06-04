@@ -1182,7 +1182,7 @@ async function loadTimeline() {
         const firstPhoto = lPhotos[0];
         const dateStr = firstPhoto.date;
         const accordionId = `acc-${year}-${li}`;
-        const isFirst = yi === 0 && li === 0;
+        const isFirst = true;
         return `
           <div class="mb-8">
             <div class="accordion-header ${isFirst ? 'open' : ''} cursor-pointer group flex items-center gap-4 mb-0"
