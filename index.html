@@ -519,24 +519,12 @@ function handleFileSelect(e) {
 function setSelectedFile(file) {
   selectedFile = file;
   const ext = file.name.split(".").pop().toLowerCase();
-  const isRaw = ext === "cr2";
   const previewImg = document.getElementById("preview-img");
-  if (isRaw) {
-    previewImg.src = "";
-    previewImg.style.display = "none";
-    let placeholder = document.getElementById("raw-placeholder");
-    if (!placeholder) {
-      placeholder = document.createElement("div");
-      placeholder.id = "raw-placeholder";
-      placeholder.className = "flex flex-col items-center justify-center h-32 text-on-surface-variant";
-      placeholder.innerHTML = '<span class="material-symbols-outlined text-5xl mb-2">camera</span><span class="text-xs">RAW — preview not available</span>';
-      previewImg.parentNode.insertBefore(placeholder, previewImg);
-    }
-    placeholder.style.display = "flex";
+  if (ext === "cr2" && typeof exifr !== "undefined") {
+    exifr.thumbnailUrl(file).then(url => {
+      if (url) { previewImg.src = url; }
+    }).catch(() => {});
   } else {
-    previewImg.style.display = "";
-    const ph = document.getElementById("raw-placeholder");
-    if (ph) ph.style.display = "none";
     const reader = new FileReader();
     reader.onload = (e) => { previewImg.src = e.target.result; };
     reader.readAsDataURL(file);
