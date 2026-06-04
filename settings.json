@@ -6,11 +6,11 @@
   "typography": {
     "heroTitle": {
       "font": "",
-      "size": "36"
+      "size": "42"
     },
     "heroSub": {
       "font": "",
-      "size": ""
+      "size": "30"
     },
     "siteName": {
       "font": "",
@@ -22,7 +22,7 @@
     },
     "yearLabel": {
       "font": "",
-      "size": "30"
+      "size": "32"
     },
     "locationHead": {
       "font": "",
