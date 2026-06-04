@@ -820,7 +820,7 @@ document.addEventListener("DOMContentLoaded", () => {
     owner: saved.owner || "Nana77mii",
     repo:  saved.repo  || "studio-photos",
     branch: saved.branch || "main",
-    token: sessionStorage.getItem("gh_token") || "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"
+    token: sessionStorage.getItem("gh_token") || ""
   };
   document.getElementById("cfg-owner").value  = ghConfig.owner;
   document.getElementById("cfg-repo").value   = ghConfig.repo;
