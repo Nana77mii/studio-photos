@@ -2256,9 +2256,12 @@ function rerenderTimeline() {
     <div class="reveal-section mb-40">
       <h2 class="reveal-year text-5xl md:text-9xl font-bold text-white tracking-tighter leading-none mb-6 md:mb-12">${year}</h2>
       ${Object.entries(byYear[year])
-        .sort(([, a], [, b]) => b[0].date.localeCompare(a[0].date)) // newest date first
         .map(([loc, lPhotos]) => {
-          lPhotos.sort((a, b) => b.date.localeCompare(a.date)); // newest first within group
+          lPhotos.sort((a, b) => b.date.localeCompare(a.date)); // sort within group first
+          return [loc, lPhotos];
+        })
+        .sort(([, a], [, b]) => b[0].date.localeCompare(a[0].date)) // then sort groups by newest date
+        .map(([loc, lPhotos]) => {
           const accordionId = "acc-" + year + "-" + loc.replace(/[^a-z0-9]/gi, "");
           return `
           <div class="mb-8">
