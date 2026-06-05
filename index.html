@@ -92,7 +92,7 @@ body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
   height:var(--row-h); min-height:0; max-width:100%; min-width:0;
   flex-grow:var(--r,1.5); flex-basis:calc(var(--row-h) * var(--r,1.5));
 }
-.photo-grid .gallery-card .gallery-img { width:100%; height:100%; object-fit:cover; }
+.photo-grid .gallery-card .gallery-img { width:100%; height:100%; object-fit:contain; }
 /* Narrow screens: single column at natural aspect ratio (no cropping) */
 @media (max-width:639px) {
   .photo-grid { flex-direction:column; gap:0.5rem; }
@@ -183,12 +183,51 @@ body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
 .status-bar.show { opacity:1; transform:translateY(0); }
 .status-bar.success { border-color:rgba(120,220,120,.4); color:#7fdc7f; }
 .status-bar.error { border-color:rgba(220,80,80,.4); color:#dc5050; }
+
+/* ── Music Control ── */
+#music-btn {
+  position:fixed; bottom:24px; left:24px; z-index:150;
+  width:40px; height:40px; border-radius:50%;
+  background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12);
+  color:#e5e2e1; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  transition:background 0.3s, border-color 0.3s, opacity 0.3s;
+}
+#music-btn:hover { background:rgba(255,255,255,0.12); border-color:rgba(255,255,255,0.3); }
+#music-btn.playing { border-color:rgba(255,255,255,0.3); }
+#music-btn .music-icon { font-size:20px; }
+#music-vol-wrap {
+  position:fixed; bottom:72px; left:24px; z-index:150;
+  display:flex; flex-direction:column; align-items:center; gap:6px;
+  opacity:0; pointer-events:none; transition:opacity 0.3s;
+}
+#music-vol-wrap.show { opacity:1; pointer-events:auto; }
+#music-vol-slider {
+  -webkit-appearance:none; width:4px; height:80px;
+  background:rgba(255,255,255,0.15); border-radius:2px;
+  writing-mode:vertical-lr; direction:rtl;
+  cursor:pointer;
+}
+#music-vol-slider::-webkit-slider-thumb {
+  -webkit-appearance:none; width:12px; height:12px; border-radius:50%;
+  background:#fff; cursor:pointer;
+}
 </style>
 </head>
 <body class="min-h-screen flex flex-col overflow-x-hidden">
 
 <!-- ═══════════════════════════ STATUS BAR ═══════════════════════════ -->
 <div id="status-bar" class="status-bar"></div>
+
+<!-- Background Music -->
+<audio id="bgm-player" loop preload="none"></audio>
+<button id="music-btn" onclick="toggleMusic()" title="Music">
+  <span id="music-icon" class="material-symbols-outlined music-icon">volume_off</span>
+</button>
+<div id="music-vol-wrap">
+  <input id="music-vol-slider" type="range" min="0" max="100" value="30" oninput="setMusicVolume(this.value)"/>
+  <span id="music-vol-label" class="text-[10px] text-on-surface-variant/50 tracking-widest">30</span>
+</div>
 
 <!-- Download Modal -->
 <div id="download-modal" class="fixed inset-0 z-[100] flex items-center justify-center hidden">
@@ -488,6 +527,29 @@ body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
           </div>
         </div>
       </div>
+      <!-- Background Music -->
+      <div class="mb-6">
+        <label class="text-xs text-on-surface-variant mb-2 block">Background Music</label>
+        <div class="flex gap-4 items-start mb-3">
+          <div class="w-36 h-10 ghost-border rounded flex-shrink-0 bg-white/5 flex items-center justify-center overflow-hidden">
+            <span id="bgm-file-name" class="text-[10px] text-on-surface-variant/50 px-2 truncate w-full text-center">No file</span>
+          </div>
+          <div class="flex-1 space-y-2">
+            <label class="drop-zone rounded p-2 text-center cursor-pointer block text-xs hover:border-white/30 transition-colors" onclick="document.getElementById('bgm-input').click()">
+              <span class="material-symbols-outlined text-sm text-on-surface-variant block">upload</span>
+              Upload MP3
+              <input id="bgm-input" type="file" accept="audio/mpeg,audio/mp3" class="hidden" onchange="previewMusicFile(event)"/>
+            </label>
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          <label class="text-xs text-on-surface-variant w-10">Volume</label>
+          <input id="set-music-volume" type="range" min="0" max="100" value="30" class="flex-1 h-1 cursor-pointer"
+                 oninput="document.getElementById('set-music-volume-val').textContent=this.value"
+                 style="accent-color:#fff;"/>
+          <span id="set-music-volume-val" class="text-xs text-on-surface-variant w-8 text-right">30</span>
+        </div>
+      </div>
       <div class="flex items-center gap-3">
         <button onclick="saveSettings()" class="btn-primary text-xs">Save Settings</button>
         <div id="settings-progress" class="hidden text-xs text-on-surface-variant flex items-center gap-2">
@@ -671,11 +733,14 @@ const DEFAULT_SETTINGS = {
   heroLine2: "IN PIXELS",
   heroSub: "by Nana7mii — a collection of moments captured in time.",
   heroBgUrl: "",
+  musicUrl: "",
+  musicVolume: 30,
   typography: {},
   photoLayouts: {},
 };
 let siteSettings = { ...DEFAULT_SETTINGS };
 let pendingHeroBgFile = null;
+let pendingMusicFile = null;
 
 /* ═══════════════════════════════════════════════════════════
    ROUTING
@@ -687,7 +752,7 @@ function showView(name) {
   target.classList.add("active");
   previousView = currentView;
   currentView = name;
-  window.scrollTo(0, 0);
+  if (!scrollToCardId) window.scrollTo(0, 0);
   const footer = document.getElementById("main-footer");
   footer.style.display = (name === "admin" || name === "admin-login") ? "none" : "";
   const activeNav = name === "detail" ? "home" : name;
@@ -717,7 +782,12 @@ function toggleMobileMenu() {
   document.body.style.overflow = isOpen ? "" : "hidden";
 }
 
+let scrollToCardId = null;
+
 function goBack() {
+  if (currentView === "detail" && currentDetailPhoto) {
+    scrollToCardId = currentDetailPhoto.id;
+  }
   showView(previousView === currentView ? "home" : previousView);
 }
 
@@ -1400,6 +1470,18 @@ function applySettings(s) {
   }
 
   applyFontSettings(s);
+
+  // Music
+  const player = document.getElementById("bgm-player");
+  const volSlider = document.getElementById("music-vol-slider");
+  const volLabel = document.getElementById("music-vol-label");
+  const vol = s.musicVolume ?? 30;
+  if (player) {
+    if (s.musicUrl) player.src = s.musicUrl;
+    player.volume = vol / 100;
+  }
+  if (volSlider) volSlider.value = vol;
+  if (volLabel) volLabel.textContent = vol;
 }
 
 function buildTypoRows() {
@@ -1447,6 +1529,16 @@ function fillSettingsForm(s) {
     thumb.src = s.heroBgUrl; thumb.style.display = "";
     if (empty) empty.style.display = "none";
   }
+
+  // Music
+  set("set-music-volume", s.musicVolume ?? 30);
+  const volVal = document.getElementById("set-music-volume-val");
+  if (volVal) volVal.textContent = s.musicVolume ?? 30;
+  const bgmName = document.getElementById("bgm-file-name");
+  if (bgmName && s.musicUrl) {
+    bgmName.textContent = s.musicUrl.split("/").pop().split("?")[0] || "music.mp3";
+  }
+  pendingMusicFile = null;
 }
 
 let currentTypoKey = null;
@@ -1544,6 +1636,87 @@ function applyHeroBgUrl(url) {
   if (empty) empty.style.display = "none";
 }
 
+/* ═══════════════════════════════════════════════════════════
+   MUSIC
+═══════════════════════════════════════════════════════════ */
+function previewMusicFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  pendingMusicFile = file;
+  const nameEl = document.getElementById("bgm-file-name");
+  if (nameEl) nameEl.textContent = file.name;
+}
+
+let musicPlaying = false;
+
+function toggleMusic() {
+  const player = document.getElementById("bgm-player");
+  const icon = document.getElementById("music-icon");
+  if (!player || !player.src) return;
+
+  if (player.paused) {
+    player.play().then(() => {
+      musicPlaying = true;
+      document.getElementById("music-btn").classList.add("playing");
+      icon.textContent = "volume_up";
+    }).catch(() => {});
+  } else {
+    player.pause();
+    musicPlaying = false;
+    document.getElementById("music-btn").classList.remove("playing");
+    icon.textContent = "volume_off";
+  }
+}
+
+function setMusicVolume(v) {
+  const player = document.getElementById("bgm-player");
+  const label = document.getElementById("music-vol-label");
+  if (player) player.volume = v / 100;
+  if (label) label.textContent = v;
+  // Also update admin slider
+  const adminSlider = document.getElementById("set-music-volume");
+  const adminVal = document.getElementById("set-music-volume-val");
+  if (adminSlider) adminSlider.value = v;
+  if (adminVal) adminVal.textContent = v;
+}
+
+// Show/hide volume slider on long-press or hover
+document.addEventListener("DOMContentLoaded", () => {
+  const btn = document.getElementById("music-btn");
+  const wrap = document.getElementById("music-vol-wrap");
+  if (!btn || !wrap) return;
+  let hideTimer;
+  btn.addEventListener("mouseenter", () => { clearTimeout(hideTimer); wrap.classList.add("show"); });
+  btn.addEventListener("mouseleave", () => { hideTimer = setTimeout(() => wrap.classList.remove("show"), 600); });
+  wrap.addEventListener("mouseenter", () => { clearTimeout(hideTimer); wrap.classList.add("show"); });
+  wrap.addEventListener("mouseleave", () => { wrap.classList.remove("show"); });
+  btn.addEventListener("click", (e) => {
+    // Toggle volume slider on click
+    wrap.classList.toggle("show");
+  });
+});
+
+// Auto-play on first user interaction (browsers require this)
+let musicPrimed = false;
+function primeMusic() {
+  if (musicPrimed) return;
+  const player = document.getElementById("bgm-player");
+  if (!player || !player.src) { musicPrimed = true; return; }
+  player.play().then(() => {
+    musicPlaying = true;
+    const btn = document.getElementById("music-btn");
+    const icon = document.getElementById("music-icon");
+    if (btn) btn.classList.add("playing");
+    if (icon) icon.textContent = "volume_up";
+  }).catch(() => {
+    // If autoplay blocked, show as paused
+  });
+  musicPrimed = true;
+}
+["click","scroll","keydown","touchstart"].forEach(evt =>
+  document.addEventListener(evt, primeMusic, { once: true })
+);
+
 async function saveSettings() {
   const cfg = getConfig();
   if (!cfg.owner || !cfg.repo || !cfg.token) { showStatus("Configure GitHub first.", "error"); return; }
@@ -1570,6 +1743,26 @@ async function saveSettings() {
     }
   }
 
+  // Upload music file if pending
+  let musicUrl = siteSettings.musicUrl || DEFAULT_SETTINGS.musicUrl;
+  if (pendingMusicFile) {
+    try {
+      const b64 = await fileToBase64(pendingMusicFile);
+      const ext = pendingMusicFile.name.split(".").pop().toLowerCase();
+      const musicPath = `photos/bgm.${ext}`;
+      const existingSha = await getFileSha(musicPath);
+      await putFile(musicPath, b64, "Update background music", existingSha);
+      musicUrl = `https://raw.githubusercontent.com/${cfg.owner}/${cfg.repo}/${cfg.branch}/photos/bgm.${ext}`;
+      pendingMusicFile = null;
+    } catch (err) {
+      prog.classList.add("hidden");
+      showStatus("Music upload failed: " + err.message, "error");
+      return;
+    }
+  }
+
+  const musicVolume = parseInt(document.getElementById("set-music-volume").value) || 30;
+
   const settings = {
     siteName:     document.getElementById("set-site-name").value.trim()    || DEFAULT_SETTINGS.siteName,
     heroLine1:    document.getElementById("set-hero-1").value.trim()       || DEFAULT_SETTINGS.heroLine1,
@@ -1579,7 +1772,9 @@ async function saveSettings() {
       font: document.getElementById(`typo-${key}-font`)?.value || "",
       size: document.getElementById(`typo-${key}-size`)?.value || "",
     }])),
-    heroBgUrl
+    heroBgUrl,
+    musicUrl,
+    musicVolume
   };
 
   localStorage.setItem("site_settings", JSON.stringify(settings));
@@ -1692,7 +1887,7 @@ function renderPhotoGrid(photos) {
         <button class="ecb" onclick="event.stopPropagation();movePhoto('${p.id}',1)" title="Move later">→</button>
       </div>` : '';
     return `
-      <div class="gallery-card ghost-border cursor-pointer reveal-card ${editModeActive ? 'edit-active' : ''}"
+      <div id="card-${p.id}" class="gallery-card ghost-border cursor-pointer reveal-card ${editModeActive ? 'edit-active' : ''}"
            style="--r:${r.toFixed(4)};transition-delay:${delay}s"
            onclick="${editModeActive ? '' : `showDetail('${p.id}')`}"
            ${editModeActive ? `draggable="true" ondragstart="onEditDragStart(event,'${p.id}')" ondragover="onEditDragOver(event)" ondragleave="onEditDragLeave(event)" ondrop="onEditDrop(event,'${p.id}')"` : ''}>
@@ -1868,6 +2063,19 @@ function rerenderTimeline() {
   `).join("");
   // Observe newly rendered reveal elements
   observeReveal();
+  // Scroll to specific photo if returning from detail view
+  if (scrollToCardId) {
+    requestAnimationFrame(() => {
+      const card = document.getElementById("card-" + scrollToCardId);
+      if (card) {
+        card.scrollIntoView({ behavior: "smooth", block: "center" });
+        // Brief highlight
+        card.style.outline = "2px solid rgba(255,255,255,0.35)";
+        setTimeout(() => { card.style.outline = ""; }, 2000);
+      }
+      scrollToCardId = null;
+    });
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════
