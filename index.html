@@ -270,7 +270,7 @@ body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
     <a onclick="showView('home')" data-nav="home" class="nav-link text-white border-b border-white pb-0.5 cursor-pointer">Sanctuary</a>
     <a onclick="showView('chronicles')" data-nav="chronicles" class="nav-link text-on-surface-variant hover:text-white transition-colors cursor-pointer">Chronicles</a>
     <a class="nav-link text-on-surface-variant hover:text-white transition-colors cursor-pointer">About</a>
-    <a onclick="showView('admin-login')" data-nav="admin-login" class="nav-link text-on-surface-variant hover:text-white transition-colors cursor-pointer">Admin</a>
+    <a onclick="goAdmin()" data-nav="admin-login" class="nav-link text-on-surface-variant hover:text-white transition-colors cursor-pointer">Admin</a>
   </div>
   <div class="flex items-center gap-3">
     <button onclick="showView('home')" class="btn-primary text-xs hidden md:block">Inquire</button>
@@ -286,7 +286,7 @@ body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
     <a onclick="showView('home');toggleMobileMenu()" data-nav="home" data-nav-mobile class="text-white cursor-pointer">Sanctuary</a>
     <a onclick="showView('chronicles');toggleMobileMenu()" data-nav="chronicles" data-nav-mobile class="text-on-surface-variant cursor-pointer">Chronicles</a>
     <a class="text-on-surface-variant cursor-pointer">About</a>
-    <a onclick="showView('admin-login');toggleMobileMenu()" data-nav="admin-login" data-nav-mobile class="text-on-surface-variant cursor-pointer">Admin</a>
+    <a onclick="goAdmin();toggleMobileMenu()" data-nav="admin-login" data-nav-mobile class="text-on-surface-variant cursor-pointer">Admin</a>
   </div>
   <button onclick="showView('home');toggleMobileMenu()" class="btn-primary text-xs">Inquire</button>
 </div>
@@ -383,14 +383,13 @@ body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
         <p class="text-xs tracking-widest uppercase text-on-surface-variant mb-1">Admin Dashboard</p>
         <div class="flex items-baseline justify-between mb-2">
           <h2 class="text-4xl font-bold tracking-tight text-white">Manage Sanctuary</h2>
-          <button onclick="adminLogout()" class="text-xs text-on-surface-variant/50 hover:text-white transition-colors flex items-center gap-1">
-            <span class="material-symbols-outlined text-sm">logout</span> Sign out
-          </button>
         </div>
       </div>
       <div class="flex items-center gap-3">
         <button onclick="showView('home')" class="btn-ghost text-xs">← View Site</button>
-        <button onclick="logout()" class="btn-ghost text-xs">Sign Out</button>
+        <button onclick="adminLogout()" class="text-xs text-on-surface-variant/50 hover:text-white transition-colors flex items-center gap-1">
+          <span class="material-symbols-outlined text-sm">logout</span> Sign Out
+        </button>
       </div>
     </div>
 
@@ -712,6 +711,7 @@ function goToSanctuary(accId) {
 ═══════════════════════════════════════════════════════════ */
 function adminLogout() {
   localStorage.removeItem("gh_token");
+  localStorage.removeItem("admin_authed");
   ghConfig.token = "";
   document.getElementById("cfg-token").value = "";
   showView("home");
@@ -724,12 +724,18 @@ function tryLogin() {
   if (pw === ADMIN_PASSWORD) {
     err.classList.add("hidden");
     document.getElementById("admin-pw-input").value = "";
+    localStorage.setItem("admin_authed", "1");   // stay signed in until explicit Sign Out
     showView("admin");
   } else {
     err.classList.remove("hidden");
   }
 }
-function logout() { showView("home"); }
+
+// Entry point for the "Admin" nav: skip the password form if already signed in.
+function goAdmin() {
+  if (localStorage.getItem("admin_authed") || isAdminLoggedIn()) showView("admin");
+  else showView("admin-login");
+}
 
 /* ═══════════════════════════════════════════════════════════
    GITHUB CONFIG
@@ -1666,10 +1672,9 @@ function renderPhotoGrid(photos) {
     return `<div class="photo-grid-single" style="max-width:${maxW}">${card(sorted[0])}</div>`;
   }
 
-  // Fewer photos in a period → taller rows (grander); more photos → denser mosaic.
-  const n = sorted.length;
-  const rowHd = n <= 2 ? 23 : n <= 4 ? 19 : n <= 6 ? 16.5 : 14.5;
-  return `<div class="photo-grid" style="--row-h-d:${rowHd}rem">${sorted.map(card).join("")}</div>`;
+  // Uniform row height everywhere: a period with more photos simply gets more
+  // rows (taller section), instead of shrinking the photos.
+  return `<div class="photo-grid" style="--row-h-d:20rem">${sorted.map(card).join("")}</div>`;
 }
 
 function toggleAccordion(id, header) {
