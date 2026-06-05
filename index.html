@@ -563,6 +563,10 @@ body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
           <span class="material-symbols-outlined text-sm">refresh</span> Refresh
         </button>
       </div>
+      <div id="photo-audit" class="hidden mb-4 rounded px-4 py-3 text-xs flex items-center justify-between gap-3 border">
+        <span id="photo-audit-msg" class="flex items-center gap-2"></span>
+        <button id="photo-audit-fix" onclick="reconcileOrphans()" class="hidden btn-ghost text-xs whitespace-nowrap py-1.5 px-3">Recover missing</button>
+      </div>
       <div id="admin-gallery" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
         <div class="text-xs text-on-surface-variant/50 col-span-full py-8 text-center">Configure GitHub above to load photos.</div>
       </div>
@@ -988,6 +992,7 @@ function fileToBase64(file) {
 async function loadAdminGallery() {
   const cfg = getConfig();
   if (!cfg.owner || !cfg.repo) return;
+  refreshPhotoAudit();   // reconcile actual files vs index (independent fresh read)
   const gallery = document.getElementById("admin-gallery");
   gallery.innerHTML = `<div class="col-span-full shimmer h-24 rounded"></div>`;
   try {
@@ -1015,6 +1020,123 @@ async function loadAdminGallery() {
     `).join("");
   } catch (err) {
     gallery.innerHTML = `<div class="text-xs text-red-400 col-span-full py-8 text-center">${err.message}</div>`;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PHOTO AUDIT — actual files in photos/ are the source of truth
+═══════════════════════════════════════════════════════════ */
+// List real image files via the Contents API and diff against index.json.
+async function auditPhotos() {
+  const cfg = getConfig();
+  if (!cfg.owner || !cfg.repo || !cfg.token) return null;
+  let dirItems;
+  try { dirItems = await ghFetch("/contents/photos"); }
+  catch { return null; }
+  const isImg = n => /\.(jpe?g|png|cr2)$/i.test(n);
+  const files = dirItems
+    .filter(it => it.type === "file" && isImg(it.name) && !/^hero\./i.test(it.name))
+    .map(it => ({ id: it.name.replace(/\.[^.]+$/, ""), name: it.name, ext: it.name.split(".").pop().toLowerCase() }));
+  let indexed = [];
+  try {
+    const data = await ghFetch("/contents/photos/index.json");
+    indexed = JSON.parse(decodeURIComponent(escape(atob(data.content.replace(/\s/g, "")))));
+  } catch { indexed = []; }
+  const indexedIds = new Set(indexed.map(p => p.id));
+  const fileIds = new Set(files.map(f => f.id));
+  return {
+    fileCount: files.length,
+    indexCount: indexed.length,
+    orphans:  files.filter(f => !indexedIds.has(f.id)),   // file on disk, not in index
+    dangling: indexed.filter(p => !fileIds.has(p.id)),    // index row, no file
+  };
+}
+
+async function refreshPhotoAudit() {
+  const box = document.getElementById("photo-audit");
+  const msg = document.getElementById("photo-audit-msg");
+  const fixBtn = document.getElementById("photo-audit-fix");
+  if (!box) return;
+  let a;
+  try { a = await auditPhotos(); } catch { a = null; }
+  if (!a) { box.classList.add("hidden"); return; }
+  box.classList.remove("hidden");
+  const inSync = a.orphans.length === 0 && a.dangling.length === 0;
+  box.style.borderColor = inSync ? "rgba(120,220,120,0.35)" : "rgba(230,170,70,0.5)";
+  box.style.background  = inSync ? "rgba(120,220,120,0.06)" : "rgba(230,170,70,0.08)";
+  box.style.color       = inSync ? "#86d986" : "#e9b65a";
+  if (inSync) {
+    msg.innerHTML = `<span class="material-symbols-outlined text-sm">check_circle</span> In sync — ${a.fileCount} files, ${a.indexCount} indexed.`;
+    fixBtn.classList.add("hidden");
+  } else {
+    const parts = [];
+    if (a.orphans.length)  parts.push(`${a.orphans.length} file${a.orphans.length>1?"s":""} not in index`);
+    if (a.dangling.length) parts.push(`${a.dangling.length} index row${a.dangling.length>1?"s":""} with no file`);
+    msg.innerHTML = `<span class="material-symbols-outlined text-sm">warning</span> ${a.fileCount} files vs ${a.indexCount} indexed — ${parts.join(", ")}.`;
+    fixBtn.classList.toggle("hidden", a.orphans.length === 0);
+  }
+}
+
+// Pull EXIF (date / camera / lens) straight from the file URL; location is left
+// UNKNOWN for the user to set via Edit, since it isn't reliably in EXIF.
+async function exifFromUrl(url) {
+  if (typeof exifr === "undefined") return {};
+  let exif;
+  try {
+    exif = await exifr.parse(url, { pick: ["DateTimeOriginal","Make","Model","LensModel","FNumber","ExposureTime","ISO","FocalLength"] });
+  } catch { return {}; }
+  if (!exif) return {};
+  const out = {};
+  if (exif.DateTimeOriginal) out.date = new Date(exif.DateTimeOriginal).toISOString().slice(0, 10);
+  if (exif.Make || exif.Model) {
+    const make = (exif.Make || "").trim(), model = (exif.Model || "").trim();
+    out.camera = (model.toLowerCase().startsWith(make.toLowerCase()) ? model : `${make} ${model}`).trim().toUpperCase();
+  }
+  const lensParts = [];
+  if (exif.LensModel) lensParts.push(exif.LensModel.trim());
+  const s = [];
+  if (exif.FocalLength) s.push(`${exif.FocalLength}mm`);
+  if (exif.FNumber) s.push(`f/${exif.FNumber}`);
+  if (exif.ExposureTime) s.push(exif.ExposureTime < 1 ? `1/${Math.round(1 / exif.ExposureTime)}s` : `${exif.ExposureTime}s`);
+  if (exif.ISO) s.push(`ISO ${exif.ISO}`);
+  if (s.length) lensParts.push(s.join("  "));
+  if (lensParts.length) out.lens = lensParts.join(" | ");
+  return out;
+}
+
+async function reconcileOrphans() {
+  const fixBtn = document.getElementById("photo-audit-fix");
+  fixBtn.disabled = true;
+  const msg = document.getElementById("photo-audit-msg");
+  try {
+    const a = await auditPhotos();
+    if (!a || a.orphans.length === 0) { showStatus("Nothing to recover.", "success"); return; }
+    const cfg = getConfig();
+    msg.innerHTML = `<span class="material-symbols-outlined text-sm animate-spin">autorenew</span> Recovering ${a.orphans.length} photo(s)…`;
+    const newRecs = [];
+    for (const f of a.orphans) {
+      const url = `https://raw.githubusercontent.com/${cfg.owner}/${cfg.repo}/${cfg.branch}/photos/${f.name}`;
+      let meta = {};
+      try { meta = await exifFromUrl(url); } catch {}
+      const date = meta.date || new Date().toISOString().slice(0, 10);
+      newRecs.push({
+        id: f.id, url, location: "UNKNOWN", date,
+        year: date.slice(0, 4), month: date.slice(5, 7),
+        category: "STREET", camera: meta.camera || "", lens: meta.lens || "", caption: "",
+      });
+    }
+    await mutateIndex(photos => {
+      const have = new Set(photos.map(p => p.id));
+      newRecs.forEach(r => { if (!have.has(r.id)) photos.unshift(r); });
+      return photos;
+    });
+    showStatus(`Recovered ${newRecs.length} photo(s). Set location/date via Edit.`, "success");
+    loadAdminGallery();
+  } catch (err) {
+    showStatus("Recover failed: " + err.message, "error");
+    refreshPhotoAudit();
+  } finally {
+    fixBtn.disabled = false;
   }
 }
 
