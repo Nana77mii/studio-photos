@@ -39,5 +39,8 @@
   },
   "heroBgUrl": "https://raw.githubusercontent.com/Nana77mii/studio-photos/main/photos/hero.jpg",
   "musicUrl": "https://raw.githubusercontent.com/Nana77mii/studio-photos/main/photos/bgm.mp3",
-  "musicVolume": 30
+  "musicVolume": 30,
+  "musicTitle": "Fix You",
+  "musicArtist": "Coldplay",
+  "tracks": []
 }
