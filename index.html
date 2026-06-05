@@ -185,6 +185,48 @@ body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
 .status-bar.error { border-color:rgba(220,80,80,.4); color:#dc5050; }
 
 /* ── Music Control ── */
+/* Vinyl record (top-right) */
+#vinyl-wrap {
+  position:fixed; top:92px; right:24px; z-index:140;
+  display:none; flex-direction:column; align-items:center; gap:6px;
+  transition:opacity 0.6s;
+}
+#vinyl-wrap.on { display:flex; }
+#vinyl-disc {
+  width:48px; height:48px; border-radius:50%;
+  background:radial-gradient(circle at center,
+    #333 0%, #333 16%,
+    #1a1a1a 16.5%, #111 30%,
+    #222 30.5%, #1a1a1a 44%,
+    #333 44.5%, #222 60%,
+    #1a1a1a 60.5%, #0d0d0d 78%,
+    #222 78.5%, #111 100%
+  );
+  box-shadow:0 2px 12px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.06);
+  animation:spin 3s linear infinite; animation-play-state:paused;
+}
+#vinyl-wrap.playing #vinyl-disc { animation-play-state:running; }
+@keyframes spin { to { transform:rotate(360deg); } }
+#vinyl-center {
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  width:14px; height:14px; border-radius:50%;
+  background:radial-gradient(circle at 35% 35%, #e85, #a30);
+  box-shadow:0 1px 3px rgba(0,0,0,0.4);
+}
+#vinyl-track-info {
+  text-align:center; max-width:100px;
+}
+#vinyl-track-title {
+  display:block; font-size:10px; color:#fff; font-weight:500;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  max-width:100px;
+}
+#vinyl-track-artist {
+  display:block; font-size:9px; color:rgba(255,255,255,0.4);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  max-width:100px;
+}
+/* Bottom-left music button */
 #music-btn {
   position:fixed; bottom:24px; left:24px; z-index:150;
   width:40px; height:40px; border-radius:50%;
@@ -221,6 +263,16 @@ body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
 
 <!-- Background Music -->
 <audio id="bgm-player" loop preload="none"></audio>
+<!-- Vinyl record (top-right) -->
+<div id="vinyl-wrap">
+  <div id="vinyl-disc" style="position:relative">
+    <div id="vinyl-center"></div>
+  </div>
+  <div id="vinyl-track-info">
+    <span id="vinyl-track-title"></span>
+    <span id="vinyl-track-artist"></span>
+  </div>
+</div>
 <button id="music-btn" onclick="toggleMusic()" title="Music">
   <span id="music-icon" class="material-symbols-outlined music-icon">volume_off</span>
 </button>
@@ -549,6 +601,25 @@ body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
                  style="accent-color:#fff;"/>
           <span id="set-music-volume-val" class="text-xs text-on-surface-variant w-8 text-right">30</span>
         </div>
+        <!-- Track metadata (auto-extracted or manual) -->
+        <div class="grid grid-cols-2 gap-3 mt-3">
+          <div>
+            <label class="text-xs text-on-surface-variant mb-1 block">Song Title <span class="text-white/20">(auto from file)</span></label>
+            <input id="set-track-title" class="admin-input text-sm" placeholder="Unknown Title"/>
+          </div>
+          <div>
+            <label class="text-xs text-on-surface-variant mb-1 block">Artist</label>
+            <input id="set-track-artist" class="admin-input text-sm" placeholder="Unknown Artist"/>
+          </div>
+        </div>
+        <!-- Tracks bound to sections -->
+        <div class="mt-4 pt-4 border-t border-white/5">
+          <p class="text-xs tracking-widest uppercase text-on-surface-variant mb-3">Section Tracks <span class="text-white/20">(bind music to years)</span></p>
+          <div id="tracks-list"></div>
+          <button onclick="addTrackRow()" class="text-xs text-on-surface-variant hover:text-white transition-colors flex items-center gap-1 mt-2">
+            <span class="material-symbols-outlined text-sm">add</span> Add Track
+          </button>
+        </div>
       </div>
       <div class="flex items-center gap-3">
         <button onclick="saveSettings()" class="btn-primary text-xs">Save Settings</button>
@@ -735,6 +806,9 @@ const DEFAULT_SETTINGS = {
   heroBgUrl: "",
   musicUrl: "",
   musicVolume: 30,
+  musicTitle: "",
+  musicArtist: "",
+  tracks: [],
   typography: {},
   photoLayouts: {},
 };
@@ -1482,6 +1556,8 @@ function applySettings(s) {
   }
   if (volSlider) volSlider.value = vol;
   if (volLabel) volLabel.textContent = vol;
+  allTracks = s.tracks || [];
+  updateVinylInfo(s.musicTitle || "", s.musicArtist || "");
 }
 
 function buildTypoRows() {
@@ -1538,6 +1614,9 @@ function fillSettingsForm(s) {
   if (bgmName && s.musicUrl) {
     bgmName.textContent = s.musicUrl.split("/").pop().split("?")[0] || "music.mp3";
   }
+  set("set-track-title", s.musicTitle || "");
+  set("set-track-artist", s.musicArtist || "");
+  buildTrackRows(s.tracks || []);
   pendingMusicFile = null;
 }
 
@@ -1637,35 +1716,114 @@ function applyHeroBgUrl(url) {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   MUSIC
+   MUSIC — multi-track, metadata, crossfade, section binding
 ═══════════════════════════════════════════════════════════ */
+let musicPlaying = false;
+let currentTrackId = null;   // id of currently playing track (or 'default')
+let allTracks = [];          // [{ id, url, title, artist, bindYear }]
+let crossfadeTimer = null;
+
 function previewMusicFile(e) {
   const file = e.target.files[0];
   if (!file) return;
   pendingMusicFile = file;
   const nameEl = document.getElementById("bgm-file-name");
   if (nameEl) nameEl.textContent = file.name;
+  // Auto-extract metadata
+  extractTrackMeta(file);
 }
 
-let musicPlaying = false;
+function extractTrackMeta(file) {
+  if (typeof jsmediatags === "undefined") return;
+  jsmediatags.read(file, {
+    onSuccess: (tag) => {
+      const t = tag.tags;
+      const title = t.title || "";
+      const artist = t.artist || "";
+      if (title) document.getElementById("set-track-title").value = title;
+      if (artist) document.getElementById("set-track-artist").value = artist;
+    },
+    onError: () => {}
+  });
+}
 
+// ── Track row management (admin panel) ──
+function buildTrackRows(tracks) {
+  allTracks = tracks || [];
+  const container = document.getElementById("tracks-list");
+  if (!container) return;
+  if (!allTracks.length) {
+    container.innerHTML = '<p class="text-xs text-on-surface-variant/30 py-2">No section tracks yet. Add one to bind music to a year.</p>';
+    return;
+  }
+  container.innerHTML = allTracks.map((t, i) => `
+    <div class="flex items-center gap-2 py-2 border-b border-white/5 last:border-0">
+      <span class="text-[10px] text-on-surface-variant/50 w-6">#${i+1}</span>
+      <input value="${t.title||''}" placeholder="Title" class="admin-input text-xs flex-1 py-1.5"
+             onchange="allTracks[${i}].title=this.value"/>
+      <input value="${t.artist||''}" placeholder="Artist" class="admin-input text-xs w-24 py-1.5"
+             onchange="allTracks[${i}].artist=this.value"/>
+      <input value="${t.bindYear||''}" placeholder="Year" class="admin-input text-xs w-16 py-1.5 text-center"
+             onchange="allTracks[${i}].bindYear=this.value" title="Play when this year section is visible"/>
+      <input value="${t.url||''}" placeholder="URL or upload first" class="admin-input text-xs flex-1 py-1.5"
+             onchange="allTracks[${i}].url=this.value"/>
+      <button onclick="allTracks.splice(${i},1);buildTrackRows(allTracks)" class="text-xs text-red-400/50 hover:text-red-400 transition-colors">&times;</button>
+    </div>
+  `).join("");
+}
+
+function addTrackRow() {
+  const t = { id: 't'+Date.now(), url: '', title: '', artist: '', bindYear: '' };
+  allTracks.push(t);
+  buildTrackRows(allTracks);
+}
+
+// ── Playback ──
 function toggleMusic() {
   const player = document.getElementById("bgm-player");
-  const icon = document.getElementById("music-icon");
   if (!player || !player.src) return;
+  if (player.paused) { playMusic(); }
+  else { pauseMusic(); }
+}
 
-  if (player.paused) {
-    player.play().then(() => {
-      musicPlaying = true;
-      document.getElementById("music-btn").classList.add("playing");
-      icon.textContent = "volume_up";
-    }).catch(() => {});
+function playMusic() {
+  const player = document.getElementById("bgm-player");
+  if (!player || !player.src) return;
+  player.play().then(() => {
+    musicPlaying = true;
+    updateMusicUI(true);
+  }).catch(() => {});
+}
+
+function pauseMusic() {
+  const player = document.getElementById("bgm-player");
+  if (!player) return;
+  player.pause();
+  musicPlaying = false;
+  updateMusicUI(false);
+}
+
+function updateMusicUI(playing) {
+  const btn = document.getElementById("music-btn");
+  const icon = document.getElementById("music-icon");
+  const vinyl = document.getElementById("vinyl-wrap");
+  if (playing) {
+    if (btn) btn.classList.add("playing");
+    if (icon) icon.textContent = "volume_up";
+    if (vinyl) vinyl.classList.add("playing");
   } else {
-    player.pause();
-    musicPlaying = false;
-    document.getElementById("music-btn").classList.remove("playing");
-    icon.textContent = "volume_off";
+    if (btn) btn.classList.remove("playing");
+    if (icon) icon.textContent = "volume_off";
+    if (vinyl) vinyl.classList.remove("playing");
   }
+}
+
+function updateVinylInfo(title, artist) {
+  document.getElementById("vinyl-track-title").textContent = title || "Untitled";
+  document.getElementById("vinyl-track-artist").textContent = artist || "";
+  const wrap = document.getElementById("vinyl-wrap");
+  if (wrap && (title || artist)) wrap.classList.add("on");
+  else if (wrap) wrap.classList.remove("on");
 }
 
 function setMusicVolume(v) {
@@ -1673,14 +1831,70 @@ function setMusicVolume(v) {
   const label = document.getElementById("music-vol-label");
   if (player) player.volume = v / 100;
   if (label) label.textContent = v;
-  // Also update admin slider
   const adminSlider = document.getElementById("set-music-volume");
   const adminVal = document.getElementById("set-music-volume-val");
   if (adminSlider) adminSlider.value = v;
   if (adminVal) adminVal.textContent = v;
 }
 
-// Show/hide volume slider on long-press or hover
+// ── Crossfade ──
+function crossfadeTo(newUrl, vol, title, artist) {
+  const player = document.getElementById("bgm-player");
+  if (!player) return;
+  const targetVol = (vol ?? 30) / 100;
+  if (crossfadeTimer) clearInterval(crossfadeTimer);
+
+  if (!player.src || player.paused) {
+    // No current track — just start playing
+    player.src = newUrl;
+    player.volume = targetVol;
+    updateVinylInfo(title, artist);
+    if (musicPlaying) { player.play().catch(()=>{}); }
+    return;
+  }
+
+  if (player.src === newUrl || player.src.endsWith(newUrl.split('/').pop())) return;
+
+  // Fade out current (0.5s), swap, fade in (0.8s)
+  const origVol = player.volume;
+  let step = 0;
+  crossfadeTimer = setInterval(() => {
+    step++;
+    if (step <= 6) {
+      // Fade out
+      player.volume = Math.max(0, origVol * (1 - step / 6));
+    } else if (step === 7) {
+      // Swap
+      player.src = newUrl;
+      player.volume = 0;
+      updateVinylInfo(title, artist);
+      if (musicPlaying) player.play().catch(()=>{});
+    } else if (step <= 16) {
+      // Fade in
+      player.volume = Math.min(targetVol, targetVol * ((step - 7) / 9));
+      if (step === 16) {
+        player.volume = targetVol;
+        clearInterval(crossfadeTimer);
+        crossfadeTimer = null;
+      }
+    }
+  }, 100);
+}
+
+// ── Section-bound track switching ──
+let lastVisibleYear = null;
+
+function checkTrackForYear(year) {
+  if (year === lastVisibleYear) return;
+  lastVisibleYear = year;
+  const track = allTracks.find(t => t.bindYear === year);
+  const vol = siteSettings.musicVolume ?? 30;
+  if (track && track.url) {
+    crossfadeTo(track.url, vol, track.title, track.artist);
+  }
+}
+
+// ── Volume slider UI ──
 document.addEventListener("DOMContentLoaded", () => {
   const btn = document.getElementById("music-btn");
   const wrap = document.getElementById("music-vol-wrap");
@@ -1690,27 +1904,16 @@ document.addEventListener("DOMContentLoaded", () => {
   btn.addEventListener("mouseleave", () => { hideTimer = setTimeout(() => wrap.classList.remove("show"), 600); });
   wrap.addEventListener("mouseenter", () => { clearTimeout(hideTimer); wrap.classList.add("show"); });
   wrap.addEventListener("mouseleave", () => { wrap.classList.remove("show"); });
-  btn.addEventListener("click", (e) => {
-    // Toggle volume slider on click
-    wrap.classList.toggle("show");
-  });
+  btn.addEventListener("click", () => { wrap.classList.toggle("show"); });
 });
 
-// Auto-play on first user interaction (browsers require this)
+// Auto-play on first user interaction
 let musicPrimed = false;
 function primeMusic() {
   if (musicPrimed) return;
   const player = document.getElementById("bgm-player");
   if (!player || !player.src) { musicPrimed = true; return; }
-  player.play().then(() => {
-    musicPlaying = true;
-    const btn = document.getElementById("music-btn");
-    const icon = document.getElementById("music-icon");
-    if (btn) btn.classList.add("playing");
-    if (icon) icon.textContent = "volume_up";
-  }).catch(() => {
-    // If autoplay blocked, show as paused
-  });
+  playMusic();
   musicPrimed = true;
 }
 ["click","scroll","keydown","touchstart"].forEach(evt =>
@@ -1774,7 +1977,10 @@ async function saveSettings() {
     }])),
     heroBgUrl,
     musicUrl,
-    musicVolume
+    musicVolume,
+    musicTitle: document.getElementById("set-track-title")?.value || siteSettings.musicTitle || "",
+    musicArtist: document.getElementById("set-track-artist")?.value || siteSettings.musicArtist || "",
+    tracks: allTracks
   };
 
   localStorage.setItem("site_settings", JSON.stringify(settings));
@@ -2065,16 +2271,20 @@ function rerenderTimeline() {
   observeReveal();
   // Scroll to specific photo if returning from detail view
   if (scrollToCardId) {
-    requestAnimationFrame(() => {
-      const card = document.getElementById("card-" + scrollToCardId);
+    const targetId = scrollToCardId;
+    scrollToCardId = null;
+    let tries = 0;
+    const tryScroll = () => {
+      const card = document.getElementById("card-" + targetId);
       if (card) {
         card.scrollIntoView({ behavior: "smooth", block: "center" });
-        // Brief highlight
         card.style.outline = "2px solid rgba(255,255,255,0.35)";
         setTimeout(() => { card.style.outline = ""; }, 2000);
+      } else if (++tries < 15) {
+        setTimeout(tryScroll, 150);
       }
-      scrollToCardId = null;
-    });
+    };
+    setTimeout(tryScroll, 200);
   }
 }
 
@@ -2245,16 +2455,25 @@ function observeReveal() {
   const targets = document.querySelectorAll('.reveal-section, .reveal-year, .reveal-card');
   if (targets.length === 0) return;
 
+  // Track which year section is most visible for music switching
+  const yearSections = {};
+  document.querySelectorAll('.reveal-section').forEach(el => {
+    const h2 = el.querySelector('h2');
+    if (h2) yearSections[el] = h2.textContent.trim();
+  });
+
   revealObserver = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
       if (entry.isIntersecting) {
         entry.target.classList.add('visible');
-        // Don't unobserve — let elements re-animate if they scroll back into view
-        // (remove .visible if you want them to re-trigger)
+        // Check if this is a year section → switch music
+        if (yearSections[entry.target]) {
+          checkTrackForYear(yearSections[entry.target]);
+        }
       }
     });
   }, {
-    threshold: 0.15,
+    threshold: 0.25,
     rootMargin: '0px 0px -40px 0px'
   });
 
@@ -2287,6 +2506,7 @@ document.addEventListener("DOMContentLoaded", () => {
   updateEditLayoutBtn();
 });
 </script>
+<script src="https://cdn.jsdelivr.net/npm/jsmediatags/dist/jsmediatags.min.js"></script>
 <script type="module">
   import exifr from 'https://cdn.jsdelivr.net/npm/exifr/dist/full.esm.js';
   window.exifr = exifr;
