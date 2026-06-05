@@ -1306,12 +1306,15 @@ async function saveEditPhoto() {
    SITE SETTINGS
 ═══════════════════════════════════════════════════════════ */
 async function loadSettings() {
-  const ghCfg = JSON.parse(localStorage.getItem("gh_config") || "{}");
+  const savedCfg = JSON.parse(localStorage.getItem("gh_config") || "{}");
+  const owner = savedCfg.owner || ghConfig.owner;
+  const repo  = savedCfg.repo  || ghConfig.repo;
+  const branch = savedCfg.branch || ghConfig.branch || "main";
   let settings = JSON.parse(localStorage.getItem("site_settings") || "null");
-  if (ghCfg.owner && ghCfg.repo) {
+  // Always try fetching settings.json from the repo (public, no token needed)
+  if (owner && repo) {
     try {
-      const branch = ghCfg.branch || "main";
-      const res = await fetch(`https://raw.githubusercontent.com/${ghCfg.owner}/${ghCfg.repo}/${branch}/settings.json?t=${Date.now()}`);
+      const res = await fetch(`https://raw.githubusercontent.com/${owner}/${repo}/${branch}/settings.json?t=${Date.now()}`);
       if (res.ok) settings = await res.json();
     } catch {}
   }
@@ -1820,7 +1823,7 @@ function rerenderTimeline() {
   });
   const years = Object.keys(byYear).sort((a, b) => b - a);
   container.innerHTML = years.map((year, yi) => `
-    <div class="snap-section flex flex-col">
+    <div class="snap-section flex flex-col h-screen">
       <div class="pt-24 md:pt-28 px-6 md:px-20 shrink-0">
         <h2 class="timeline-year text-5xl md:text-9xl font-bold text-white tracking-tighter leading-none">${year}</h2>
       </div>
