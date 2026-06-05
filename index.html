@@ -183,46 +183,36 @@ body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
 .status-bar.error { border-color:rgba(220,80,80,.4); color:#dc5050; }
 
 /* ── Music Control ── */
-/* Vinyl record (top-right) */
+/* Vinyl record (top-right, inline) */
 #vinyl-wrap {
   position:fixed; top:92px; right:24px; z-index:140;
-  display:none; flex-direction:column; align-items:center; gap:6px;
+  display:none; flex-direction:row; align-items:center; gap:8px;
   transition:opacity 0.6s;
 }
 #vinyl-wrap.on { display:flex; }
 #vinyl-disc {
-  width:48px; height:48px; border-radius:50%;
-  background:radial-gradient(circle at center,
-    #333 0%, #333 16%,
-    #1a1a1a 16.5%, #111 30%,
-    #222 30.5%, #1a1a1a 44%,
-    #333 44.5%, #222 60%,
-    #1a1a1a 60.5%, #0d0d0d 78%,
-    #222 78.5%, #111 100%
-  );
-  box-shadow:0 2px 12px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.06);
+  width:18px; height:18px; border-radius:50%; flex-shrink:0;
+  background:rgba(255,255,255,0.18);
   animation:spin 3s linear infinite; animation-play-state:paused;
 }
 #vinyl-wrap.playing #vinyl-disc { animation-play-state:running; }
 @keyframes spin { to { transform:rotate(360deg); } }
-#vinyl-center {
-  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
-  width:14px; height:14px; border-radius:50%;
-  background:radial-gradient(circle at 35% 35%, #e85, #a30);
-  box-shadow:0 1px 3px rgba(0,0,0,0.4);
-}
 #vinyl-track-info {
-  text-align:center; max-width:100px;
+  display:flex; align-items:center; gap:4px;
+  max-width:260px; overflow:hidden;
 }
 #vinyl-track-title {
-  display:block; font-size:10px; color:#fff; font-weight:500;
+  font-size:10px; color:rgba(255,255,255,0.35); font-weight:400;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  max-width:120px;
+}
+#vinyl-track-artist {
+  font-size:10px; color:rgba(255,255,255,0.2);
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
   max-width:100px;
 }
-#vinyl-track-artist {
-  display:block; font-size:9px; color:rgba(255,255,255,0.4);
-  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-  max-width:100px;
+#vinyl-track-sep {
+  color:rgba(255,255,255,0.15); font-size:10px;
 }
 /* Bottom-left music button */
 #music-btn {
@@ -263,11 +253,10 @@ body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
 <audio id="bgm-player" loop preload="none"></audio>
 <!-- Vinyl record (top-right) -->
 <div id="vinyl-wrap">
-  <div id="vinyl-disc" style="position:relative">
-    <div id="vinyl-center"></div>
-  </div>
+  <div id="vinyl-disc"></div>
   <div id="vinyl-track-info">
     <span id="vinyl-track-title"></span>
+    <span id="vinyl-track-sep">—</span>
     <span id="vinyl-track-artist"></span>
   </div>
 </div>
@@ -1818,8 +1807,10 @@ function updateMusicUI(playing) {
 }
 
 function updateVinylInfo(title, artist) {
-  document.getElementById("vinyl-track-title").textContent = title || "Untitled";
+  document.getElementById("vinyl-track-title").textContent = title || "";
   document.getElementById("vinyl-track-artist").textContent = artist || "";
+  const sep = document.getElementById("vinyl-track-sep");
+  if (sep) sep.style.display = (title && artist) ? "" : "none";
   const wrap = document.getElementById("vinyl-wrap");
   if (wrap && (title || artist)) wrap.classList.add("on");
   else if (wrap) wrap.classList.remove("on");
