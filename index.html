@@ -2039,7 +2039,10 @@ async function loadChronicles() {
         <div class="relative pl-10 border-l border-white/10">
           ${locations.map(([loc, lPhotos], li) => {
             const accId = `acc-${year}-${li}`;
-            const date = lPhotos[0].date;
+            lPhotos.sort((a, b) => b.date.localeCompare(a.date));
+            const newestD = lPhotos[0].date;
+            const oldestD = lPhotos[lPhotos.length - 1].date;
+            const dateLabel = newestD === oldestD ? newestD : `${oldestD} – ${newestD}`;
             const count = lPhotos.length;
             return `
               <div class="relative mb-6 last:mb-0 group cursor-pointer" onclick="goToSanctuary('${accId}')">
@@ -2049,7 +2052,7 @@ async function loadChronicles() {
                     <span class="text-white font-semibold tracking-tight group-hover:opacity-70 transition-opacity">${loc}</span>
                     <span class="text-xs text-on-surface-variant/50">${count} ${count > 1 ? "frames" : "frame"}</span>
                   </div>
-                  <span class="text-xs text-on-surface-variant/40 tracking-widest tabular-nums">${date}</span>
+                  <span class="text-xs text-on-surface-variant/40 tracking-widest tabular-nums">${dateLabel}</span>
                 </div>
               </div>`;
           }).join("")}
@@ -2263,11 +2266,14 @@ function rerenderTimeline() {
         .sort(([, a], [, b]) => b[0].date.localeCompare(a[0].date)) // then sort groups by newest date
         .map(([loc, lPhotos]) => {
           const accordionId = "acc-" + year + "-" + loc.replace(/[^a-z0-9]/gi, "");
+          const newestD = lPhotos[0].date;
+          const oldestD = lPhotos[lPhotos.length - 1].date;
+          const dateLabel = newestD === oldestD ? newestD : `${oldestD} – ${newestD}`;
           return `
           <div class="mb-8">
             <div class="accordion-header open cursor-pointer group flex items-center gap-4 mb-0"
                  onclick="toggleAccordion('${accordionId}', this)">
-              <p class="timeline-location text-xl md:text-5xl font-bold text-white tracking-tight">${loc} — ${lPhotos[0].date}</p>
+              <p class="timeline-location text-xl md:text-5xl font-bold text-white tracking-tight">${loc} — ${dateLabel}</p>
               <div class="h-px bg-white/10 flex-grow"></div>
               <span class="material-symbols-outlined text-2xl text-on-surface-variant acc-icon group-hover:text-white transition-colors">add</span>
             </div>
