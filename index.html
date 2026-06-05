@@ -845,6 +845,26 @@ async function mutateIndex(mutator) {
   }
 }
 
+// Insert a photo row, then re-read the index a moment later and retry the insert
+// once if the row didn't land. The insert is id-guarded so it's idempotent — a
+// false-negative re-read can never create a duplicate. Belt-and-suspenders on
+// top of mutateIndex's optimistic locking.
+async function addPhotoToIndex(record) {
+  const insert = photos => {
+    if (!photos.some(p => p.id === record.id)) photos.unshift(record);
+    return photos;
+  };
+  await mutateIndex(insert);
+  await new Promise(r => setTimeout(r, 1000));   // let the Contents API settle
+  let present = true;
+  try {
+    const data = await ghFetch("/contents/photos/index.json");
+    const idx = JSON.parse(decodeURIComponent(escape(atob(data.content.replace(/\s/g, "")))));
+    present = idx.some(p => p.id === record.id);
+  } catch { present = true; }                    // can't verify → trust the confirmed write
+  if (!present) await mutateIndex(insert);
+}
+
 /* ═══════════════════════════════════════════════════════════
    FILE UPLOAD HANDLING
 ═══════════════════════════════════════════════════════════ */
@@ -956,13 +976,10 @@ async function uploadPhoto() {
     // 3. Build raw URL
     const rawUrl = `https://raw.githubusercontent.com/${cfg.owner}/${cfg.repo}/${cfg.branch}/${fileName}`;
 
-    // 4. Update index (atomic — never clobbers concurrent/rapid uploads)
+    // 4. Update index (atomic + post-write verification with one retry)
     const year = date.slice(0, 4);
     const month = date.slice(5, 7);
-    await mutateIndex(photos => {
-      photos.unshift({ id, url: rawUrl, location, date, year, month, category, camera, lens, caption });
-      return photos;
-    });
+    await addPhotoToIndex({ id, url: rawUrl, location, date, year, month, category, camera, lens, caption });
 
     showStatus("Photo uploaded successfully!", "success");
     clearUpload();
