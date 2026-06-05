@@ -2053,7 +2053,12 @@ function observeReveal() {
 /* ═══════════════════════════════════════════════════════════
    INIT
 ═══════════════════════════════════════════════════════════ */
+// Always scroll to top on refresh (disable browser scroll restoration)
+if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+window.addEventListener('beforeunload', () => window.scrollTo(0, 0));
+
 document.addEventListener("DOMContentLoaded", () => {
+  window.scrollTo(0, 0);
   const saved = JSON.parse(localStorage.getItem("gh_config") || "{}");
   // Pre-fill defaults
   ghConfig = {
