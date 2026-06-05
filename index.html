@@ -67,8 +67,8 @@ body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
 .fade-in { animation: fadeIn 0.5s cubic-bezier(0.2,0.8,0.2,1) forwards; }
 @keyframes fadeIn { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
 
-.hero-img-in { animation: heroIn 2s cubic-bezier(0.2,0.8,0.2,1) forwards; opacity:0; }
-@keyframes heroIn { to { opacity:0.8; } }
+.hero-img-in { animation: heroIn 2s cubic-bezier(0.2,0.8,0.2,1) both; }
+@keyframes heroIn { from { opacity:0; } to { opacity:0.8; } }
 
 .hero-txt { opacity:0; transform:translateY(20px); animation: txtIn 0.8s cubic-bezier(0.175,0.885,0.32,1.275) forwards; }
 .hero-txt:nth-child(1) { animation-delay:.5s; }
@@ -288,9 +288,9 @@ body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
 
   <!-- Hero -->
   <section class="relative w-full h-screen flex items-center justify-center overflow-hidden">
-    <div class="absolute inset-0">
-      <img id="hero-bg" src="https://lh3.googleusercontent.com/aida/AP1WRLu8tudpQbg-SF43nT5MSG00yBQl36zqtusnKX9F9QxJ5JBJ4Hue_rpCqAZOzWIYVfc-QBtUWVTnn_GhTQkvJopn9DaUbs8zDv8hVENuzfxIvTNWku09ekmyqTSo59rqV0223xQIBrMEXGieis--OdPr6d311U1RFf-gfjDgoUBcVrtmludCj57Us246EGmM86pa_-eyFwQJtBUkktB1F-xHtKyjgm26QZmvPy6eSY1_fahM2zvcK4uaqg" 
-           alt="Hero" class="w-full h-full object-cover hero-img-in"/>
+    <div class="absolute inset-0" style="background:radial-gradient(ellipse 120% 100% at 50% 0%, #2a2826 0%, #1a1918 45%, #141313 100%)">
+      <img id="hero-bg" alt="Hero" class="w-full h-full object-cover hero-img-in" style="display:none"
+           onload="this.style.display=''" onerror="this.style.display='none'"/>
       <div class="absolute inset-0 bg-gradient-to-b from-[#141313]/30 via-transparent to-[#141313]/90"></div>
     </div>
     <div class="relative z-10 text-center px-6 md:px-20">
