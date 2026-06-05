@@ -85,22 +85,20 @@ body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
 }
 .gallery-card:hover .gallery-overlay { opacity:1; }
 
-/* ── Photo Grid (justified rows — height uniform per row, width by aspect ratio) ── */
-.photo-grid { display:flex; flex-wrap:wrap; gap:0.75rem; width:100%; --row-h:var(--row-h-d,17rem); }
-.photo-grid::after { content:""; flex-grow:999999; }   /* keeps last row from over-stretching */
+/* ── Photo Grid (masonry columns — irregular, natural heights) ── */
+.photo-grid {
+  column-count:3; column-gap:0.75rem; width:100%;
+}
 .photo-grid .gallery-card {
-  height:var(--row-h); min-height:0; max-width:100%; min-width:0;
-  flex-grow:var(--r,1.5); flex-basis:calc(var(--row-h) * var(--r,1.5));
+  break-inside:avoid; margin-bottom:0.75rem;
+  height:auto; width:100%;
 }
-.photo-grid .gallery-card .gallery-img { width:100%; height:100%; object-fit:contain; }
-/* Narrow screens: single column at natural aspect ratio (no cropping) */
-@media (max-width:639px) {
-  .photo-grid { flex-direction:column; gap:0.5rem; }
-  .photo-grid::after { display:none; }
-  .photo-grid .gallery-card { height:auto; width:100%; flex:none; }
-  .photo-grid .gallery-card .gallery-img { height:auto; }
+.photo-grid .gallery-card .gallery-img {
+  width:100%; height:auto; object-fit:cover; display:block;
 }
-.photo-grid-single { width:100%; }
+@media (max-width:1024px) { .photo-grid { column-count:2; } }
+@media (max-width:639px)  { .photo-grid { column-count:1; } }
+.photo-grid-single { width:100%; column-count:1; }
 .photo-grid-single .gallery-card { width:100%; }
 .photo-grid-single .gallery-img { width:100%; height:auto; }
 
@@ -1485,6 +1483,7 @@ async function loadSettings() {
     localStorage.setItem("site_settings", JSON.stringify(siteSettings));
   }
   applySettings(siteSettings);
+  tryAutoPlay();
 }
 
 function loadGoogleFonts(fonts) {
@@ -1907,18 +1906,29 @@ document.addEventListener("DOMContentLoaded", () => {
   btn.addEventListener("click", () => { wrap.classList.toggle("show"); });
 });
 
-// Auto-play on first user interaction
+// Auto-play on first user interaction (browsers require this)
 let musicPrimed = false;
 function primeMusic() {
   if (musicPrimed) return;
   const player = document.getElementById("bgm-player");
-  if (!player || !player.src) { musicPrimed = true; return; }
+  if (!player || !player.src) return; // don't mark primed, wait for source
   playMusic();
   musicPrimed = true;
+  // Remove listeners once primed
+  ["click","scroll","keydown","touchstart"].forEach(evt =>
+    document.removeEventListener(evt, primeMusic)
+  );
 }
 ["click","scroll","keydown","touchstart"].forEach(evt =>
-  document.addEventListener(evt, primeMusic, { once: true })
+  document.addEventListener(evt, primeMusic)
 );
+// Also try after settings load (player src may be set async)
+function tryAutoPlay() {
+  if (!musicPrimed) {
+    const player = document.getElementById("bgm-player");
+    if (player && player.src) playMusic();
+  }
+}
 
 async function saveSettings() {
   const cfg = getConfig();
