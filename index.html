@@ -1844,9 +1844,12 @@ function rerenderTimeline() {
   container.innerHTML = years.map((year, yi) => `
     <div class="reveal-section mb-40">
       <h2 class="reveal-year text-5xl md:text-9xl font-bold text-white tracking-tighter leading-none mb-6 md:mb-12">${year}</h2>
-      ${Object.entries(byYear[year]).map(([loc, lPhotos]) => {
-        const accordionId = "acc-" + year + "-" + loc.replace(/[^a-z0-9]/gi, "");
-        return `
+      ${Object.entries(byYear[year])
+        .sort(([, a], [, b]) => b[0].date.localeCompare(a[0].date)) // newest date first
+        .map(([loc, lPhotos]) => {
+          lPhotos.sort((a, b) => b.date.localeCompare(a.date)); // newest first within group
+          const accordionId = "acc-" + year + "-" + loc.replace(/[^a-z0-9]/gi, "");
+          return `
           <div class="mb-8">
             <div class="accordion-header open cursor-pointer group flex items-center gap-4 mb-0"
                  onclick="toggleAccordion('${accordionId}', this)">
