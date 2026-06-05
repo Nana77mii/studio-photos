@@ -813,11 +813,32 @@ async function readIndex() {
   } catch { return []; }
 }
 
-async function writeIndex(photos) {
-  const json = JSON.stringify(photos, null, 2);
-  const b64 = btoa(unescape(encodeURIComponent(json)));
-  const sha = await getFileSha("photos/index.json");
-  await putFile("photos/index.json", b64, "Update photo index", sha);
+// Atomic read-modify-write of the index. Reads via the Contents API (strongly
+// consistent) rather than the CDN-cached raw endpoint, and writes with that
+// exact sha so a stale read can never clobber a concurrent change — on conflict
+// it re-reads and retries. This is what prevents rapid uploads from losing rows.
+async function mutateIndex(mutator) {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    let photos = [], sha = null;
+    try {
+      const data = await ghFetch("/contents/photos/index.json");
+      sha = data.sha;
+      photos = JSON.parse(decodeURIComponent(escape(atob(data.content.replace(/\s/g, "")))));
+    } catch { photos = []; sha = null; }
+    const next = mutator([...photos]);
+    const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(next, null, 2))));
+    try {
+      await putFile("photos/index.json", b64, "Update photo index", sha);
+      photosCache = next;
+      return next;
+    } catch (e) {
+      if (attempt < 3 && /\b(409|sha|conflict)\b|does not match/i.test(e.message)) {
+        await new Promise(r => setTimeout(r, 300 * (attempt + 1)));
+        continue;
+      }
+      throw e;
+    }
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -931,13 +952,13 @@ async function uploadPhoto() {
     // 3. Build raw URL
     const rawUrl = `https://raw.githubusercontent.com/${cfg.owner}/${cfg.repo}/${cfg.branch}/${fileName}`;
 
-    // 4. Update index
-    const photos = await readIndex();
+    // 4. Update index (atomic — never clobbers concurrent/rapid uploads)
     const year = date.slice(0, 4);
     const month = date.slice(5, 7);
-    photos.unshift({ id, url: rawUrl, location, date, year, month, category, camera, lens, caption });
-    await writeIndex(photos);
-    photosCache = photos;
+    await mutateIndex(photos => {
+      photos.unshift({ id, url: rawUrl, location, date, year, month, category, camera, lens, caption });
+      return photos;
+    });
 
     showStatus("Photo uploaded successfully!", "success");
     clearUpload();
@@ -1000,8 +1021,7 @@ async function loadAdminGallery() {
 async function deletePhoto(id) {
   if (!confirm("Delete this photo?")) return;
   try {
-    const photos = await readIndex();
-    const photo = photos.find(p => p.id === id);
+    const photo = photosCache.find(p => p.id === id) || (await readIndex()).find(p => p.id === id);
     if (!photo) { showStatus("Photo not found.", "error"); return; }
 
     // Delete image file
@@ -1009,10 +1029,8 @@ async function deletePhoto(id) {
     const sha = await getFileSha(path);
     if (sha) await deleteFile(path, sha, `Delete photo: ${photo.location}`);
 
-    // Update index
-    const updated = photos.filter(p => p.id !== id);
-    await writeIndex(updated);
-    photosCache = updated;
+    // Update index atomically
+    await mutateIndex(photos => photos.filter(p => p.id !== id));
     showStatus("Photo deleted.", "success");
     loadAdminGallery();
   } catch (err) {
@@ -1054,14 +1072,13 @@ async function saveEditPhoto() {
   const prog = document.getElementById("edit-progress");
   btn.disabled = true; prog.classList.remove("hidden");
   try {
-    const photos = await readIndex();
-    const idx = photos.findIndex(p => p.id === editingPhotoId);
-    if (idx === -1) { showStatus("Photo not found.", "error"); return; }
     const year = date.slice(0, 4);
     const month = date.slice(5, 7);
-    photos[idx] = { ...photos[idx], location, date, year, month, category, camera, lens, caption };
-    await writeIndex(photos);
-    photosCache = photos;
+    await mutateIndex(photos => {
+      const idx = photos.findIndex(p => p.id === editingPhotoId);
+      if (idx !== -1) photos[idx] = { ...photos[idx], location, date, year, month, category, camera, lens, caption };
+      return photos;
+    });
     closeEditModal();
     loadAdminGallery();
     showStatus("Photo updated!", "success");
