@@ -3,6 +3,7 @@
   "heroLine1": "Nana77mii's",
   "heroLine2": "Memory Cabin",
   "heroSub": "— a random collection of moments captured in time.",
+  "heroBgUrl": "https://raw.githubusercontent.com/Nana77mii/studio-photos/main/photos/hero.jpg",
   "typography": {
     "heroTitle": {
       "font": "Cormorant Garamond",
@@ -37,5 +38,39 @@
       "size": ""
     }
   },
-  "heroBgUrl": "https://raw.githubusercontent.com/Nana77mii/studio-photos/main/photos/hero.jpg"
+  "photoLayouts": {
+    "mpzauy04u7ue": {
+      "order": 0
+    },
+    "mpzai2x6k5iv": {
+      "order": 3
+    },
+    "mpzahcllo66h": {
+      "order": 1
+    },
+    "mpz97485auny": {
+      "order": 2
+    },
+    "mpza1n5whkv0": {
+      "order": 0
+    },
+    "mpza1386xrc7": {
+      "order": 1
+    },
+    "mpza05jzzgd6": {
+      "order": 2
+    },
+    "mpz9zlxcjw1b": {
+      "order": 3
+    },
+    "mpz9yqgzexlk": {
+      "order": 4
+    },
+    "mpz9yckyc54q": {
+      "order": 5
+    },
+    "mpz9mxvan6nn": {
+      "order": 6
+    }
+  }
 }
