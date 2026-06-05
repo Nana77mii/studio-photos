@@ -135,18 +135,33 @@ body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
 .typo-row:hover { background:rgba(255,255,255,0.025); border-radius:4px; }
 .typo-row.active { background:rgba(255,255,255,0.045); border-radius:4px; }
 
-/* ── Scroll Snap (PPT-style full-page) ── */
-html.snap-mode {
-  scroll-snap-type: y mandatory;
+/* ── Reveal Animations (Apple-style scroll-triggered) ── */
+.reveal-section {
+  opacity: 0;
+  transform: translateY(48px);
+  transition: opacity 0.9s cubic-bezier(0.2,0.8,0.2,1), transform 0.9s cubic-bezier(0.2,0.8,0.2,1);
 }
-.snap-section {
-  scroll-snap-align: start;
-  scroll-snap-stop: always;
+.reveal-section.visible {
+  opacity: 1;
+  transform: translateY(0);
 }
-@media (max-width: 639px) {
-  html.snap-mode {
-    scroll-snap-type: y proximity;
-  }
+.reveal-year {
+  opacity: 0;
+  transform: scale(0.92);
+  transition: opacity 1s cubic-bezier(0.2,0.8,0.2,1), transform 1s cubic-bezier(0.2,0.8,0.2,1);
+}
+.reveal-year.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+.reveal-card {
+  opacity: 0;
+  transform: translateY(32px);
+  transition: opacity 0.65s cubic-bezier(0.2,0.8,0.2,1), transform 0.65s cubic-bezier(0.2,0.8,0.2,1);
+}
+.reveal-card.visible {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 /* ── Admin ── */
@@ -311,7 +326,7 @@ html.snap-mode {
 <div id="view-home" class="view active pt-0">
 
   <!-- Hero -->
-  <section class="snap-section relative w-full h-screen flex items-center justify-center overflow-hidden">
+  <section class="relative w-full h-screen flex items-center justify-center overflow-hidden">
     <div class="absolute inset-0" style="background:radial-gradient(ellipse 120% 100% at 50% 0%, #2a2826 0%, #1a1918 45%, #141313 100%)">
       <img id="hero-bg" alt="Hero" class="w-full h-full object-cover hero-img-in" style="display:none"
            onload="this.style.display=''" onerror="this.style.display='none'"/>
@@ -326,7 +341,7 @@ html.snap-mode {
   </section>
 
   <!-- Timeline -->
-  <section id="timeline-section" class="bg-[#141313]">
+  <section id="timeline-section" class="py-16 md:py-40 bg-[#141313]">
     <div id="timeline-container" class="px-6 md:px-20 overflow-x-hidden">
       <div class="text-center text-on-surface-variant py-20 text-sm tracking-widest uppercase" id="timeline-loading">
         Loading portfolio…
@@ -599,7 +614,7 @@ html.snap-mode {
 </div>
 
 <!-- Footer -->
-<footer id="main-footer" class="snap-section bg-[#141313] w-full py-10 border-t border-white/10 flex flex-col md:flex-row justify-between items-center px-6 md:px-20 gap-4 mt-auto">
+<footer id="main-footer" class="bg-[#141313] w-full py-10 border-t border-white/10 flex flex-col md:flex-row justify-between items-center px-6 md:px-20 gap-4 mt-auto">
   <a onclick="showView('home')" id="footer-logo" class="text-white text-sm cursor-pointer">ECHOES' IN PIXELS</a>
   <div class="flex gap-6 text-xs tracking-widest uppercase text-on-surface-variant">
     <a class="hover:text-white transition-colors cursor-pointer">Instagram</a>
@@ -673,12 +688,6 @@ function showView(name) {
   previousView = currentView;
   currentView = name;
   window.scrollTo(0, 0);
-  // Toggle scroll-snap: only on Sanctuary
-  if (name === "home") {
-    document.documentElement.classList.add("snap-mode");
-  } else {
-    document.documentElement.classList.remove("snap-mode");
-  }
   const footer = document.getElementById("main-footer");
   footer.style.display = (name === "admin" || name === "admin-login") ? "none" : "";
   const activeNav = name === "detail" ? "home" : name;
@@ -1664,8 +1673,9 @@ function renderPhotoGrid(photos) {
     return Math.max(0.5, Math.min(2.4, r));     // clamp extremes (panorama / tall)
   };
 
-  const card = (p) => {
+  const card = (p, idx) => {
     const r = ratioOf(p);
+    const delay = (idx * 0.06).toFixed(2); // staggered reveal
     const editCtrl = editModeActive ? `
       <div class="edit-card-ctrl">
         <button class="ecb" onclick="event.stopPropagation();movePhoto('${p.id}',-1)" title="Move earlier">←</button>
@@ -1673,8 +1683,8 @@ function renderPhotoGrid(photos) {
         <button class="ecb" onclick="event.stopPropagation();movePhoto('${p.id}',1)" title="Move later">→</button>
       </div>` : '';
     return `
-      <div class="gallery-card ghost-border cursor-pointer ${editModeActive ? 'edit-active' : ''}"
-           style="--r:${r.toFixed(4)}"
+      <div class="gallery-card ghost-border cursor-pointer reveal-card ${editModeActive ? 'edit-active' : ''}"
+           style="--r:${r.toFixed(4)};transition-delay:${delay}s"
            onclick="${editModeActive ? '' : `showDetail('${p.id}')`}"
            ${editModeActive ? `draggable="true" ondragstart="onEditDragStart(event,'${p.id}')" ondragover="onEditDragOver(event)" ondragleave="onEditDragLeave(event)" ondrop="onEditDrop(event,'${p.id}')"` : ''}>
         <img src="${p.url}" alt="${p.location}" class="gallery-img" loading="lazy"/>
@@ -1697,7 +1707,7 @@ function renderPhotoGrid(photos) {
 
   // Uniform row height everywhere: a period with more photos simply gets more
   // rows (taller section), instead of shrinking the photos.
-  return `<div class="photo-grid" style="--row-h-d:20rem">${sorted.map(card).join("")}</div>`;
+  return `<div class="photo-grid" style="--row-h-d:20rem">${sorted.map((p,i) => card(p,i)).join("")}</div>`;
 }
 
 function toggleAccordion(id, header) {
@@ -1823,31 +1833,29 @@ function rerenderTimeline() {
   });
   const years = Object.keys(byYear).sort((a, b) => b - a);
   container.innerHTML = years.map((year, yi) => `
-    <div class="snap-section flex flex-col h-screen">
-      <div class="pt-24 md:pt-28 px-6 md:px-20 shrink-0">
-        <h2 class="timeline-year text-5xl md:text-9xl font-bold text-white tracking-tighter leading-none">${year}</h2>
-      </div>
-      <div class="flex-1 overflow-y-auto px-6 md:px-20 pb-12">
-        ${Object.entries(byYear[year]).map(([loc, lPhotos]) => {
-          const accordionId = "acc-" + year + "-" + loc.replace(/[^a-z0-9]/gi, "");
-          return `
-            <div class="mb-8">
-              <div class="accordion-header open cursor-pointer group flex items-center gap-4 mb-0"
-                   onclick="toggleAccordion('${accordionId}', this)">
-                <p class="timeline-location text-xl md:text-5xl font-bold text-white tracking-tight">${loc} — ${lPhotos[0].date}</p>
-                <div class="h-px bg-white/10 flex-grow"></div>
-                <span class="material-symbols-outlined text-2xl text-on-surface-variant acc-icon group-hover:text-white transition-colors">add</span>
+    <div class="reveal-section mb-40">
+      <h2 class="reveal-year text-5xl md:text-9xl font-bold text-white tracking-tighter leading-none mb-6 md:mb-12">${year}</h2>
+      ${Object.entries(byYear[year]).map(([loc, lPhotos]) => {
+        const accordionId = "acc-" + year + "-" + loc.replace(/[^a-z0-9]/gi, "");
+        return `
+          <div class="mb-8">
+            <div class="accordion-header open cursor-pointer group flex items-center gap-4 mb-0"
+                 onclick="toggleAccordion('${accordionId}', this)">
+              <p class="timeline-location text-xl md:text-5xl font-bold text-white tracking-tight">${loc} — ${lPhotos[0].date}</p>
+              <div class="h-px bg-white/10 flex-grow"></div>
+              <span class="material-symbols-outlined text-2xl text-on-surface-variant acc-icon group-hover:text-white transition-colors">add</span>
+            </div>
+            <div id="${accordionId}" class="accordion-body open">
+              <div class="accordion-inner pt-8">
+                ${renderPhotoGrid(lPhotos)}
               </div>
-              <div id="${accordionId}" class="accordion-body open">
-                <div class="accordion-inner pt-8">
-                  ${renderPhotoGrid(lPhotos)}
-                </div>
-              </div>
-            </div>`;
-        }).join("")}
-      </div>
+            </div>
+          </div>`;
+      }).join("")}
     </div>
   `).join("");
+  // Observe newly rendered reveal elements
+  observeReveal();
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -2006,10 +2014,37 @@ function showStatus(msg, type = "success") {
 }
 
 /* ═══════════════════════════════════════════════════════════
+   REVEAL OBSERVER (Apple-style scroll-triggered animations)
+═══════════════════════════════════════════════════════════ */
+let revealObserver = null;
+
+function observeReveal() {
+  // Clean up previous observer
+  if (revealObserver) revealObserver.disconnect();
+
+  const targets = document.querySelectorAll('.reveal-section, .reveal-year, .reveal-card');
+  if (targets.length === 0) return;
+
+  revealObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        // Don't unobserve — let elements re-animate if they scroll back into view
+        // (remove .visible if you want them to re-trigger)
+      }
+    });
+  }, {
+    threshold: 0.15,
+    rootMargin: '0px 0px -40px 0px'
+  });
+
+  targets.forEach(el => revealObserver.observe(el));
+}
+
+/* ═══════════════════════════════════════════════════════════
    INIT
 ═══════════════════════════════════════════════════════════ */
 document.addEventListener("DOMContentLoaded", () => {
-  document.documentElement.classList.add("snap-mode"); // home is default view
   const saved = JSON.parse(localStorage.getItem("gh_config") || "{}");
   // Pre-fill defaults
   ghConfig = {
