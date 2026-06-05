@@ -9,7 +9,9 @@
     "category": "STREET",
     "camera": "CANON EOS 80D",
     "lens": "EF-S18-135mm f/3.5-5.6 IS USM | 50mm  f/5  1/100s  ISO 100",
-    "caption": ""
+    "caption": "",
+    "w": 6000,
+    "h": 4000
   },
   {
     "id": "mpzai2x6k5iv",
@@ -21,7 +23,9 @@
     "category": "LANDSCAPE",
     "camera": "CANON EOS 80D",
     "lens": "EF-S18-135mm f/3.5-5.6 IS USM | 50mm  f/5  1/100s  ISO 100",
-    "caption": ""
+    "caption": "",
+    "w": 6000,
+    "h": 4000
   },
   {
     "id": "mpzahcllo66h",
@@ -33,7 +37,9 @@
     "category": "LANDSCAPE",
     "camera": "CANON EOS 80D",
     "lens": "EF-S18-135mm f/3.5-5.6 IS USM | 24mm  f/16  1/30s  ISO 100",
-    "caption": ""
+    "caption": "",
+    "w": 4000,
+    "h": 6000
   },
   {
     "id": "mpza1n5whkv0",
@@ -45,7 +51,9 @@
     "category": "ARCHITECTURE",
     "camera": "CANON EOS 80D",
     "lens": "EF-S18-135mm f/3.5-5.6 IS USM | 18mm  f/3.5  1/160s  ISO 800",
-    "caption": ""
+    "caption": "",
+    "w": 4000,
+    "h": 6000
   },
   {
     "id": "mpza1386xrc7",
@@ -57,7 +65,9 @@
     "category": "ARCHITECTURE",
     "camera": "CANON EOS 80D",
     "lens": "EF-S18-135mm f/3.5-5.6 IS USM | 24mm  f/4  1/60s  ISO 1000",
-    "caption": ""
+    "caption": "",
+    "w": 6000,
+    "h": 4000
   },
   {
     "id": "mpza05jzzgd6",
@@ -69,7 +79,9 @@
     "category": "ARCHITECTURE",
     "camera": "CANON EOS 80D",
     "lens": "EF-S18-135mm f/3.5-5.6 IS USM | 85mm  f/5.6  1/60s  ISO 500",
-    "caption": ""
+    "caption": "",
+    "w": 5546,
+    "h": 3697
   },
   {
     "id": "mpz9zlxcjw1b",
@@ -81,7 +93,9 @@
     "category": "ARCHITECTURE",
     "camera": "CANON EOS 80D",
     "lens": "EF-S18-135mm f/3.5-5.6 IS USM | 27mm  f/4  1/160s  ISO 800",
-    "caption": ""
+    "caption": "",
+    "w": 6000,
+    "h": 4000
   },
   {
     "id": "mpz9yqgzexlk",
@@ -93,7 +107,9 @@
     "category": "ARCHITECTURE",
     "camera": "CANON EOS 80D",
     "lens": "EF-S18-135mm f/3.5-5.6 IS USM | 29mm  f/4  1/160s  ISO 800",
-    "caption": ""
+    "caption": "",
+    "w": 6000,
+    "h": 4000
   },
   {
     "id": "mpz9yckyc54q",
@@ -105,7 +121,9 @@
     "category": "ARCHITECTURE",
     "camera": "CANON EOS 80D",
     "lens": "EF-S18-135mm f/3.5-5.6 IS USM | 18mm  f/3.5  1/160s  ISO 800",
-    "caption": ""
+    "caption": "",
+    "w": 3024,
+    "h": 4536
   },
   {
     "id": "mpz9mxvan6nn",
@@ -117,7 +135,9 @@
     "category": "ARCHITECTURE",
     "camera": "CANON EOS 80D",
     "lens": "EF-S18-135mm f/3.5-5.6 IS USM | 42mm  f/4.5  1/160s  ISO 800",
-    "caption": ""
+    "caption": "",
+    "w": 6000,
+    "h": 4000
   },
   {
     "id": "mpz97485auny",
@@ -129,6 +149,8 @@
     "category": "PORTRAIT",
     "camera": "Canon EOS 80D",
     "lens": "EF-S18-135mm f/3.5-5.6 IS USM | 42mm  f/16  1/15s  ISO 100",
-    "caption": ""
+    "caption": "",
+    "w": 6000,
+    "h": 4000
   }
 ]

@@ -85,14 +85,24 @@ body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
 }
 .gallery-card:hover .gallery-overlay { opacity:1; }
 
-/* ── Photo Grid ── */
-.photo-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:1.25rem; width:100%; }
-@media (max-width:639px) { .photo-grid { grid-template-columns:1fr; } }
-.photo-grid .gallery-card { max-width:100%; }
-.photo-card-wide { grid-column:span 2; }
-@media (max-width:639px) { .photo-card-wide { grid-column:span 1; } }
-.photo-grid-single { width:100%; max-width:32rem; }
-@media (max-width:639px) { .photo-grid-single { max-width:100%; } }
+/* ── Photo Grid (justified rows — height uniform per row, width by aspect ratio) ── */
+.photo-grid { display:flex; flex-wrap:wrap; gap:0.75rem; width:100%; --row-h:var(--row-h-d,17rem); }
+.photo-grid::after { content:""; flex-grow:999999; }   /* keeps last row from over-stretching */
+.photo-grid .gallery-card {
+  height:var(--row-h); min-height:0; max-width:100%; min-width:0;
+  flex-grow:var(--r,1.5); flex-basis:calc(var(--row-h) * var(--r,1.5));
+}
+.photo-grid .gallery-card .gallery-img { width:100%; height:100%; object-fit:cover; }
+/* Narrow screens: single column at natural aspect ratio (no cropping) */
+@media (max-width:639px) {
+  .photo-grid { flex-direction:column; gap:0.5rem; }
+  .photo-grid::after { display:none; }
+  .photo-grid .gallery-card { height:auto; width:100%; flex:none; }
+  .photo-grid .gallery-card .gallery-img { height:auto; }
+}
+.photo-grid-single { width:100%; }
+.photo-grid-single .gallery-card { width:100%; }
+.photo-grid-single .gallery-img { width:100%; height:auto; }
 
 /* ── Edit Mode ── */
 .edit-card-ctrl { position:absolute; inset-x:0; bottom:0; background:rgba(0,0,0,0.82); padding:6px 8px; display:flex; align-items:center; justify-content:space-between; gap:6px; z-index:20; }
@@ -598,7 +608,7 @@ let selectedFile = null;
 let photosCache = [];
 let editingPhotoId = null;
 let editModeActive = false;
-let editLayouts = {};      // id → { size:1|2, order:number }
+let editLayouts = {};      // id → { order:number }
 let editDragSrc = null;
 
 const FONT_OPTIONS = [
@@ -967,8 +977,9 @@ async function uploadPhoto() {
   document.getElementById("upload-progress").classList.remove("hidden");
 
   try {
-    // 1. Read file as base64
+    // 1. Read file as base64 + capture pixel dimensions for layout
     const b64 = await fileToBase64(selectedFile);
+    const dim = await imageDimensions(selectedFile);
 
     // 2. Upload image to GitHub
     await putFile(fileName, b64, `Add photo: ${location} ${date}`);
@@ -979,7 +990,7 @@ async function uploadPhoto() {
     // 4. Update index (atomic + post-write verification with one retry)
     const year = date.slice(0, 4);
     const month = date.slice(5, 7);
-    await addPhotoToIndex({ id, url: rawUrl, location, date, year, month, category, camera, lens, caption });
+    await addPhotoToIndex({ id, url: rawUrl, location, date, year, month, category, camera, lens, caption, w: dim.w, h: dim.h });
 
     showStatus("Photo uploaded successfully!", "success");
     clearUpload();
@@ -1001,6 +1012,41 @@ function fileToBase64(file) {
     r.onerror = rej;
     r.readAsDataURL(file);
   });
+}
+
+// Pixel dimensions for layout; falls back to EXIF for formats the browser can't decode (CR2).
+async function imageDimensions(file) {
+  try {
+    const url = URL.createObjectURL(file);
+    const dim = await new Promise((res, rej) => {
+      const img = new Image();
+      img.onload = () => res({ w: img.naturalWidth, h: img.naturalHeight });
+      img.onerror = rej;
+      img.src = url;
+    });
+    URL.revokeObjectURL(url);
+    if (dim.w && dim.h) return dim;
+  } catch {}
+  if (typeof exifr !== "undefined") {
+    try {
+      const ex = await exifr.parse(file, { pick: ["ExifImageWidth","ExifImageHeight","ImageWidth","ImageHeight"] });
+      const w = ex?.ExifImageWidth || ex?.ImageWidth, h = ex?.ExifImageHeight || ex?.ImageHeight;
+      if (w && h) return { w, h };
+    } catch {}
+  }
+  return {};
+}
+
+async function imageDimsFromUrl(url) {
+  try {
+    return await new Promise((res, rej) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => res({ w: img.naturalWidth, h: img.naturalHeight });
+      img.onerror = rej;
+      img.src = url;
+    });
+  } catch { return {}; }
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1135,11 +1181,13 @@ async function reconcileOrphans() {
       const url = `https://raw.githubusercontent.com/${cfg.owner}/${cfg.repo}/${cfg.branch}/photos/${f.name}`;
       let meta = {};
       try { meta = await exifFromUrl(url); } catch {}
+      const dim = await imageDimsFromUrl(url);
       const date = meta.date || new Date().toISOString().slice(0, 10);
       newRecs.push({
         id: f.id, url, location: "UNKNOWN", date,
         year: date.slice(0, 4), month: date.slice(5, 7),
         category: "STREET", camera: meta.camera || "", lens: meta.lens || "", caption: "",
+        w: dim.w, h: dim.h,
       });
     }
     await mutateIndex(photos => {
@@ -1581,22 +1629,23 @@ function renderPhotoGrid(photos) {
     (layouts[a.id]?.order ?? 999) - (layouts[b.id]?.order ?? 999)
   );
 
+  // Aspect ratio drives each card's width within a uniform-height row.
+  const ratioOf = (p) => {
+    const r = (p.w && p.h) ? p.w / p.h : 1.5;   // default to 3:2 landscape if unknown
+    return Math.max(0.5, Math.min(2.4, r));     // clamp extremes (panorama / tall)
+  };
+
   const card = (p) => {
-    const size = layouts[p.id]?.size ?? 1;
-    const isWide = size === 2;
+    const r = ratioOf(p);
     const editCtrl = editModeActive ? `
       <div class="edit-card-ctrl">
-        <div class="flex gap-1">
-          <button class="ecb" onclick="event.stopPropagation();movePhoto('${p.id}',-1)" title="Move left">←</button>
-          <button class="ecb" onclick="event.stopPropagation();movePhoto('${p.id}',1)" title="Move right">→</button>
-        </div>
-        <div class="flex gap-1">
-          <button class="ecb ${size===1?'on':''}" onclick="event.stopPropagation();setPhotoSize('${p.id}',1)">1×</button>
-          <button class="ecb ${size===2?'on':''}" onclick="event.stopPropagation();setPhotoSize('${p.id}',2)">2×</button>
-        </div>
+        <button class="ecb" onclick="event.stopPropagation();movePhoto('${p.id}',-1)" title="Move earlier">←</button>
+        <span class="text-[10px] tracking-widest text-white/50">${r >= 1 ? 'LANDSCAPE' : 'PORTRAIT'}</span>
+        <button class="ecb" onclick="event.stopPropagation();movePhoto('${p.id}',1)" title="Move later">→</button>
       </div>` : '';
     return `
-      <div class="gallery-card ghost-border cursor-pointer ${isWide ? 'photo-card-wide' : ''} ${editModeActive ? 'edit-active' : ''}"
+      <div class="gallery-card ghost-border cursor-pointer ${editModeActive ? 'edit-active' : ''}"
+           style="--r:${r.toFixed(4)}"
            onclick="${editModeActive ? '' : `showDetail('${p.id}')`}"
            ${editModeActive ? `draggable="true" ondragstart="onEditDragStart(event,'${p.id}')" ondragover="onEditDragOver(event)" ondragleave="onEditDragLeave(event)" ondrop="onEditDrop(event,'${p.id}')"` : ''}>
         <img src="${p.url}" alt="${p.location}" class="gallery-img" loading="lazy"/>
@@ -1610,10 +1659,17 @@ function renderPhotoGrid(photos) {
       </div>`;
   };
 
+  // A single photo is featured larger, sized to its orientation (no crop).
   if (!editModeActive && sorted.length === 1) {
-    return `<div class="photo-grid-single">${card(sorted[0])}</div>`;
+    const r = ratioOf(sorted[0]);
+    const maxW = r >= 1 ? "46rem" : "26rem";
+    return `<div class="photo-grid-single" style="max-width:${maxW}">${card(sorted[0])}</div>`;
   }
-  return `<div class="photo-grid">${sorted.map(p => card(p)).join("")}</div>`;
+
+  // Fewer photos in a period → taller rows (grander); more photos → denser mosaic.
+  const n = sorted.length;
+  const rowHd = n <= 2 ? 23 : n <= 4 ? 19 : n <= 6 ? 16.5 : 14.5;
+  return `<div class="photo-grid" style="--row-h-d:${rowHd}rem">${sorted.map(card).join("")}</div>`;
 }
 
 function toggleAccordion(id, header) {
@@ -1645,7 +1701,6 @@ function enterEditMode() {
   Object.values(groups).forEach(grp => {
     grp.forEach((p, i) => {
       editLayouts[p.id] = {
-        size:  siteSettings.photoLayouts?.[p.id]?.size  ?? 1,
         order: siteSettings.photoLayouts?.[p.id]?.order ?? i,
       };
     });
@@ -1684,11 +1739,6 @@ async function saveLayout() {
   } finally {
     prog.classList.add("hidden");
   }
-}
-
-function setPhotoSize(id, size) {
-  editLayouts[id] = { ...(editLayouts[id] || { order: 0 }), size };
-  rerenderTimeline();
 }
 
 function movePhoto(id, direction) {
