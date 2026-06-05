@@ -853,6 +853,15 @@ async function deleteFile(path, sha, message) {
    METADATA JSON (photos/index.json in repo)
 ═══════════════════════════════════════════════════════════ */
 async function readIndex() {
+  // 1) GitHub Contents API — instant, no CDN lag (needs token)
+  try {
+    const cfg = getConfig();
+    if (cfg.owner && cfg.repo && cfg.token) {
+      const data = await ghFetch("/contents/photos/index.json");
+      return JSON.parse(decodeURIComponent(escape(atob(data.content.replace(/\s/g, "")))));
+    }
+  } catch {}
+  // 2) Fallback: raw URL (CDN-cached, may lag a few minutes)
   try {
     const { owner, repo, branch } = getConfig();
     const url = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/photos/index.json`;
