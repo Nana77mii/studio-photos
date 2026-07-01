@@ -4,6 +4,8 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Nana7mii's Echoes' In Pixels</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
 <script id="tailwind-config">
@@ -58,6 +60,9 @@ tailwind.config = {
 }
 
 body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
+/* Prevent jarring FOUT: fade in after custom fonts load */
+body { opacity:0; }
+body.fonts-ready { opacity:1; transition:opacity 0.15s; }
 
 /* ── Transitions ── */
 .view { display:none !important; }
@@ -651,37 +656,32 @@ body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
       <!-- Drop Zone -->
       <div id="drop-zone" class="drop-zone rounded p-10 text-center mb-6 cursor-pointer" onclick="document.getElementById('file-input').click()">
         <span class="material-symbols-outlined text-4xl text-on-surface-variant mb-3 block">upload_file</span>
-        <p class="text-sm text-on-surface-variant">Drop photo here or <span class="text-white underline">browse</span></p>
-        <p class="text-xs text-on-surface-variant/50 mt-1">JPG, CR2, PNG, WEBP — max 50MB</p>
-        <input id="file-input" type="file" accept="image/*,.cr2,.CR2" class="hidden" onchange="handleFileSelect(event)"/>
+        <p class="text-sm text-on-surface-variant">Drop photos here or <span class="text-white underline">browse</span></p>
+        <p class="text-xs text-on-surface-variant/50 mt-1">JPG, CR2, PNG, WEBP — max 50MB each · Select multiple</p>
+        <input id="file-input" type="file" accept="image/*,.cr2,.CR2" class="hidden" onchange="handleFileSelect(event)" multiple/>
       </div>
 
-      <!-- Preview -->
-      <div id="upload-preview" class="hidden mb-6">
-        <div class="flex gap-4 items-start">
-          <img id="preview-img" class="w-32 h-32 object-cover rounded ghost-border"/>
-          <div class="flex-1">
-            <p id="preview-name" class="text-sm text-white font-medium mb-1"></p>
-            <p id="preview-size" class="text-xs text-on-surface-variant"></p>
-          </div>
-          <button onclick="clearUpload()" class="text-on-surface-variant hover:text-white transition-colors">
-            <span class="material-symbols-outlined text-base">close</span>
-          </button>
+      <!-- File Queue -->
+      <div id="file-queue" class="hidden mb-6">
+        <div class="flex items-center justify-between mb-3">
+          <p class="text-xs text-on-surface-variant"><span id="queue-count">0</span> files in queue</p>
+          <button onclick="clearUpload()" class="text-xs text-on-surface-variant hover:text-white transition-colors">Clear all</button>
         </div>
+        <div id="queue-items" class="max-h-64 overflow-y-auto space-y-2 pr-1"></div>
       </div>
 
-      <!-- Metadata Form -->
+      <!-- Metadata Form (shared for batch) -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
         <div>
-          <label class="text-xs text-on-surface-variant mb-1 block">Location</label>
+          <label class="text-xs text-on-surface-variant mb-1 block">Location <span class="text-on-surface-variant/50">(all)</span></label>
           <input id="meta-location" class="admin-input text-sm" placeholder="TOKYO, JP"/>
         </div>
         <div>
-          <label class="text-xs text-on-surface-variant mb-1 block">Date</label>
+          <label class="text-xs text-on-surface-variant mb-1 block">Date <span class="text-on-surface-variant/50">(from EXIF)</span></label>
           <input id="meta-date" type="date" class="admin-input text-sm"/>
         </div>
         <div>
-          <label class="text-xs text-on-surface-variant mb-1 block">Category</label>
+          <label class="text-xs text-on-surface-variant mb-1 block">Category <span class="text-on-surface-variant/50">(all)</span></label>
           <select id="meta-category" class="admin-select text-sm">
             <option value="STREET">Street</option>
             <option value="PORTRAIT">Portrait</option>
@@ -691,24 +691,27 @@ body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
           </select>
         </div>
         <div>
-          <label class="text-xs text-on-surface-variant mb-1 block">Camera</label>
+          <label class="text-xs text-on-surface-variant mb-1 block">Camera <span class="text-on-surface-variant/50">(from EXIF)</span></label>
           <input id="meta-camera" class="admin-input text-sm" placeholder="LEICA M11"/>
         </div>
         <div class="md:col-span-2">
-          <label class="text-xs text-on-surface-variant mb-1 block">Lens / Settings</label>
-          <input id="meta-lens" class="admin-input text-sm" placeholder="35MM f/1.4"/>
-        </div>
-        <div class="md:col-span-2">
-          <label class="text-xs text-on-surface-variant mb-1 block">Caption / Note</label>
+          <label class="text-xs text-on-surface-variant mb-1 block">Caption / Note <span class="text-on-surface-variant/50">(all)</span></label>
           <input id="meta-caption" class="admin-input text-sm" placeholder="Optional short description…"/>
         </div>
       </div>
 
-      <div class="flex items-center gap-3">
-        <button onclick="uploadPhoto()" class="btn-primary text-xs">Upload to GitHub</button>
-        <div id="upload-progress" class="hidden text-xs text-on-surface-variant flex items-center gap-2">
-          <span class="material-symbols-outlined text-base animate-spin">autorenew</span>
-          Uploading…
+      <!-- Upload Buttons -->
+      <div class="flex items-center gap-3 flex-wrap">
+        <button id="btn-upload-all" onclick="uploadAllPhotos()" class="btn-primary text-xs hidden">Upload All (<span id="batch-count">0</span>)</button>
+        <button id="btn-upload-one" onclick="uploadPhoto()" class="btn-primary text-xs hidden">Upload Selected</button>
+        <div id="batch-progress" class="hidden text-xs text-on-surface-variant flex-1">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="material-symbols-outlined text-base animate-spin">autorenew</span>
+            <span id="batch-progress-text">Uploading 0/0…</span>
+          </div>
+          <div class="w-full bg-white/5 rounded-full h-1">
+            <div id="batch-progress-bar" class="bg-white/40 rounded-full h-1 transition-all" style="width:0%"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -1051,50 +1054,42 @@ async function addPhotoToIndex(record) {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   FILE UPLOAD HANDLING
+   FILE UPLOAD HANDLING (batch support)
 ═══════════════════════════════════════════════════════════ */
+let batchQueue = [];
+let batchExifCache = {}; // filename → {exif, camera, lens, date}
+
 function handleFileSelect(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  setSelectedFile(file);
-  readExif(file);
-}
-
-function setSelectedFile(file) {
-  selectedFile = file;
-  const ext = file.name.split(".").pop().toLowerCase();
-  const previewImg = document.getElementById("preview-img");
-  if (ext === "cr2" && typeof exifr !== "undefined") {
-    exifr.thumbnailUrl(file).then(url => {
-      if (url) { previewImg.src = url; }
-    }).catch(() => {});
-  } else {
-    const reader = new FileReader();
-    reader.onload = (e) => { previewImg.src = e.target.result; };
-    reader.readAsDataURL(file);
+  const files = Array.from(e.target.files);
+  if (!files.length) return;
+  for (const file of files) {
+    if (batchQueue.find(f => f.name === file.name && f.size === file.size)) continue;
+    batchQueue.push(file);
   }
-  document.getElementById("preview-name").textContent = file.name;
-  document.getElementById("preview-size").textContent = (file.size / 1024 / 1024).toFixed(2) + " MB";
-  document.getElementById("upload-preview").classList.remove("hidden");
-  document.getElementById("drop-zone").classList.add("hidden");
+  renderQueue();
+  // Auto-read EXIF for each file
+  for (const file of files) {
+    if (!batchExifCache[file.name]) readBatchExif(file);
+  }
+  e.target.value = ''; // reset so re-selecting works
 }
 
-async function readExif(file) {
+async function readBatchExif(file) {
   if (typeof exifr === "undefined") return;
   try {
     const exif = await exifr.parse(file, {
       pick: ["DateTimeOriginal","Make","Model","LensModel","FNumber","ExposureTime","ISO","FocalLength"]
     });
     if (!exif) return;
+    const entry = {};
     if (exif.DateTimeOriginal) {
       const d = new Date(exif.DateTimeOriginal);
-      document.getElementById("meta-date").value = d.toISOString().slice(0, 10);
+      entry.date = d.toISOString().slice(0, 10);
     }
     if (exif.Make || exif.Model) {
       const make = (exif.Make || "").trim();
       const model = (exif.Model || "").trim();
-      const camera = model.toLowerCase().startsWith(make.toLowerCase()) ? model : `${make} ${model}`.trim();
-      document.getElementById("meta-camera").value = camera.toUpperCase();
+      entry.camera = (model.toLowerCase().startsWith(make.toLowerCase()) ? model : `${make} ${model}`).trim().toUpperCase();
     }
     const lensParts = [];
     if (exif.LensModel) lensParts.push(exif.LensModel.trim());
@@ -1103,81 +1098,169 @@ async function readExif(file) {
     if (exif.FNumber) settings.push(`f/${exif.FNumber}`);
     if (exif.ExposureTime) {
       const et = exif.ExposureTime;
-      settings.push(et < 1 ? `1/${Math.round(1 / et)}s` : `${et}s`);
+      settings.push(et < 1 ? `1/${Math.round(1/et)}s` : `${et}s`);
     }
     if (exif.ISO) settings.push(`ISO ${exif.ISO}`);
     if (settings.length) lensParts.push(settings.join("  "));
-    if (lensParts.length) document.getElementById("meta-lens").value = lensParts.join(" | ");
+    entry.lens = lensParts.join(" | ");
+    batchExifCache[file.name] = entry;
+    renderQueue();
   } catch (err) {
-    console.warn("EXIF read failed:", err);
+    console.warn("EXIF read failed for", file.name, err);
   }
 }
 
-function clearUpload() {
-  selectedFile = null;
-  document.getElementById("file-input").value = "";
-  document.getElementById("upload-preview").classList.add("hidden");
-  document.getElementById("drop-zone").classList.remove("hidden");
+function renderQueue() {
+  const q = document.getElementById("queue-items");
+  if (!batchQueue.length) {
+    document.getElementById("file-queue").classList.add("hidden");
+    document.getElementById("btn-upload-all").classList.add("hidden");
+    document.getElementById("btn-upload-one").classList.add("hidden");
+    document.getElementById("queue-count").textContent = "0";
+    return;
+  }
+  document.getElementById("file-queue").classList.remove("hidden");
+  document.getElementById("queue-count").textContent = batchQueue.length;
+  document.getElementById("batch-count").textContent = batchQueue.length;
+  document.getElementById("btn-upload-all").classList.remove("hidden");
+  document.getElementById("btn-upload-one").classList.remove("hidden");
+
+  q.innerHTML = batchQueue.map((f, i) => {
+    const name = f.name;
+    const size = (f.size / 1024 / 1024).toFixed(1) + " MB";
+    const exif = batchExifCache[name] || {};
+    const thumb = f.type.startsWith("image/") ? URL.createObjectURL(f) : "";
+    const dateStr = exif.date ? `<span class="text-xs text-on-surface-variant/50 ml-2">${exif.date}</span>` : "";
+    const camStr = exif.camera ? `<span class="text-xs text-on-surface-variant/50 block truncate">${exif.camera}${exif.lens?' · '+exif.lens:''}</span>` : "";
+
+    return `<div class="flex items-center gap-3 p-2 rounded bg-white/[0.03] hover:bg-white/[0.05] transition-colors">
+      ${thumb ? `<img src="${thumb}" class="w-10 h-10 object-cover rounded flex-shrink-0"/>` : `<div class="w-10 h-10 flex-shrink-0 rounded bg-white/5 flex items-center justify-center"><span class="material-symbols-outlined text-sm text-on-surface-variant">image</span></div>`}
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center"><span class="text-sm text-white truncate">${name}</span>${dateStr}</div>
+        <div class="flex items-center gap-2"><span class="text-xs text-on-surface-variant">${size}</span>${camStr}</div>
+      </div>
+      <button onclick="removeFromQueue(${i})" class="text-on-surface-variant hover:text-red-400 transition-colors flex-shrink-0">
+        <span class="material-symbols-outlined text-base">close</span>
+      </button>
+    </div>`;
+  }).join("");
 }
 
-// Drag and drop
+function removeFromQueue(index) {
+  const file = batchQueue[index];
+  if (file) {
+    delete batchExifCache[file.name];
+  }
+  batchQueue.splice(index, 1);
+  renderQueue();
+}
+
+function clearUpload() {
+  // Revoke all object URLs
+  document.querySelectorAll("#queue-items img").forEach(img => {
+    if (img.src.startsWith("blob:")) URL.revokeObjectURL(img.src);
+  });
+  batchQueue = [];
+  batchExifCache = {};
+  document.getElementById("file-input").value = "";
+  renderQueue();
+}
+
+// Drag and drop — add to queue instead of replacing
 const dz = document.getElementById("drop-zone");
 dz.addEventListener("dragover", e => { e.preventDefault(); dz.classList.add("drag-over"); });
 dz.addEventListener("dragleave", () => dz.classList.remove("drag-over"));
 dz.addEventListener("drop", e => {
   e.preventDefault(); dz.classList.remove("drag-over");
-  const file = e.dataTransfer.files[0];
-  if (file) { setSelectedFile(file); readExif(file); }
+  const files = Array.from(e.dataTransfer.files);
+  for (const file of files) {
+    if (batchQueue.find(f => f.name === file.name && f.size === file.size)) continue;
+    batchQueue.push(file);
+  }
+  renderQueue();
+  for (const file of files) {
+    if (!batchExifCache[file.name]) readBatchExif(file);
+  }
 });
 
 /* ═══════════════════════════════════════════════════════════
-   UPLOAD PHOTO
+   UPLOAD — single + batch
 ═══════════════════════════════════════════════════════════ */
+
+// Original uploadPhoto — uploads the FIRST file in queue (backward compat)
 async function uploadPhoto() {
-  if (!selectedFile) { showStatus("Please select a photo first.", "error"); return; }
+  if (!batchQueue.length) { showStatus("Please select photos first.", "error"); return; }
+  const file = batchQueue[0];
+  await doUploadFile(file);
+  removeFromQueue(0);
+  loadAdminGallery();
+}
+
+// Batch upload all files in queue
+async function uploadAllPhotos() {
+  if (!batchQueue.length) { showStatus("No photos in queue.", "error"); return; }
   const cfg = getConfig();
   if (!cfg.owner || !cfg.repo || !cfg.token) { showStatus("Configure GitHub first.", "error"); return; }
 
-  const location  = document.getElementById("meta-location").value.trim().toUpperCase() || "UNKNOWN";
-  const date      = document.getElementById("meta-date").value || new Date().toISOString().slice(0, 10);
-  const category  = document.getElementById("meta-category").value;
-  const camera    = document.getElementById("meta-camera").value.trim();
-  const lens      = document.getElementById("meta-lens").value.trim();
-  const caption   = document.getElementById("meta-caption").value.trim();
+  const total = batchQueue.length;
+  const progr = document.getElementById("batch-progress");
+  const progBar = document.getElementById("batch-progress-bar");
+  const progText = document.getElementById("batch-progress-text");
+  progr.classList.remove("hidden");
+  document.getElementById("btn-upload-all").disabled = true;
+  document.getElementById("btn-upload-one").disabled = true;
+
+  let success = 0, fail = 0;
+  for (let i = 0; i < total; i++) {
+    const file = batchQueue[i];
+    progText.textContent = `Uploading ${i+1}/${total}: ${file.name}`;
+    progBar.style.width = `${Math.round((i/total)*100)}%`;
+    try {
+      await doUploadFile(file);
+      success++;
+    } catch (err) {
+      fail++;
+      console.error(`Failed: ${file.name}`, err);
+    }
+  }
+
+  progBar.style.width = "100%";
+  progText.textContent = `Done: ${success} uploaded`;
+  if (fail) progText.textContent += `, ${fail} failed`;
+  progr.classList.add("hidden");
+  document.getElementById("btn-upload-all").disabled = false;
+  document.getElementById("btn-upload-one").disabled = false;
+  showStatus(`Uploaded ${success}/${total} photos` + (fail ? ` (${fail} failed)` : ""), fail ? "error" : "success");
+
+  // Clear queue and refresh
+  clearUpload();
+  loadAdminGallery();
+}
+
+async function doUploadFile(file) {
+  const cfg = getConfig();
+  const exif = batchExifCache[file.name] || {};
+
+  const location = document.getElementById("meta-location").value.trim().toUpperCase() || "UNKNOWN";
+  const date     = exif.date || document.getElementById("meta-date").value || new Date().toISOString().slice(0,10);
+  const category = document.getElementById("meta-category").value;
+  const camera   = exif.camera || document.getElementById("meta-camera").value.trim();
+  const lens     = exif.lens || "";
+  const caption  = document.getElementById("meta-caption").value.trim();
 
   const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  const ext = selectedFile.name.split(".").pop().toLowerCase();
+  const ext = file.name.split(".").pop().toLowerCase();
   const fileName = `photos/${id}.${ext}`;
 
-  document.getElementById("upload-progress").classList.remove("hidden");
+  const b64 = await fileToBase64(file);
+  const dim = await imageDimensions(file);
 
-  try {
-    // 1. Read file as base64 + capture pixel dimensions for layout
-    const b64 = await fileToBase64(selectedFile);
-    const dim = await imageDimensions(selectedFile);
+  await putFile(fileName, b64, `Add photo: ${location} ${date}`);
+  const rawUrl = `https://raw.githubusercontent.com/${cfg.owner}/${cfg.repo}/${cfg.branch}/${fileName}`;
 
-    // 2. Upload image to GitHub
-    await putFile(fileName, b64, `Add photo: ${location} ${date}`);
-
-    // 3. Build raw URL
-    const rawUrl = `https://raw.githubusercontent.com/${cfg.owner}/${cfg.repo}/${cfg.branch}/${fileName}`;
-
-    // 4. Update index (atomic + post-write verification with one retry)
-    const year = date.slice(0, 4);
-    const month = date.slice(5, 7);
-    await addPhotoToIndex({ id, url: rawUrl, location, date, year, month, category, camera, lens, caption, w: dim.w, h: dim.h });
-
-    showStatus("Photo uploaded successfully!", "success");
-    clearUpload();
-    ["meta-location","meta-date","meta-camera","meta-lens","meta-caption"].forEach(id => {
-      document.getElementById(id).value = "";
-    });
-    loadAdminGallery();
-  } catch (err) {
-    showStatus("Upload failed: " + err.message, "error");
-  } finally {
-    document.getElementById("upload-progress").classList.add("hidden");
-  }
+  const year = date.slice(0,4);
+  const month = date.slice(5,7);
+  await addPhotoToIndex({ id, url: rawUrl, location, date, year, month, category, camera, lens, caption, w: dim.w, h: dim.h });
 }
 
 function fileToBase64(file) {
@@ -1477,12 +1560,14 @@ async function loadSettings() {
 
 function loadGoogleFonts(fonts) {
   const toLoad = fonts.filter(f => f);
-  if (!toLoad.length) return;
+  if (!toLoad.length) { document.body.classList.add("fonts-ready"); return; }
   let link = document.getElementById("custom-font-link");
   if (!link) {
     link = document.createElement("link");
     link.id = "custom-font-link";
     link.rel = "stylesheet";
+    link.onload = () => document.body.classList.add("fonts-ready");
+    link.onerror = () => document.body.classList.add("fonts-ready");
     document.head.appendChild(link);
   }
   const families = toLoad.map(f => `family=${f.replace(/ /g, "+")}:ital,wght@0,300;0,400;0,600;0,700;0,900;1,400`).join("&");
