@@ -865,12 +865,13 @@ function goToSanctuary(accId) {
   const tryScroll = () => {
     const el = document.getElementById(accId);
     if (el) {
+      const header = el.previousElementSibling;
       if (!el.classList.contains("open")) {
         el.classList.add("open");
-        const header = el.previousElementSibling;
         if (header) header.classList.add("open");
       }
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      // Scroll to header so location title aligns with viewport top
+      (header || el).scrollIntoView({ behavior: "smooth", block: "start" });
     } else if (++tries < 30) {
       setTimeout(tryScroll, 100);
     }
