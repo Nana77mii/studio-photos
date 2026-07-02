@@ -145,6 +145,14 @@ body.fonts-ready { opacity:1; transition:opacity 0.15s; }
 /* ── Detail page ── */
 #detail-img-wrap { max-height:85vh; }
 
+/* ── Lightbox (fullscreen photo viewer) ── */
+#lightbox { position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.96); display:flex; align-items:center; justify-content:center; cursor:zoom-out; }
+#lightbox.hidden { display:none; }
+#lightbox-img { max-width:95vw; max-height:95vh; object-fit:contain; cursor:grab; user-select:none; -webkit-user-select:none; transition:transform 0.08s linear; }
+#lightbox-img.grabbing { cursor:grabbing; transition:none; }
+.lb-close { position:absolute; top:20px; right:24px; color:rgba(255,255,255,0.7); font-size:32px; line-height:1; background:none; border:none; cursor:pointer; z-index:10000; }
+.lb-close:hover { color:#fff; }
+
 /* ── Typo rows ── */
 .typo-row:hover { background:rgba(255,255,255,0.025); border-radius:4px; }
 .typo-row.active { background:rgba(255,255,255,0.045); border-radius:4px; }
@@ -878,8 +886,8 @@ function goToSanctuary(accId) {
         el.classList.add("open");
         if (header) header.classList.add("open");
       }
-      // Scroll to header so location title aligns with viewport top
-      (header || el).scrollIntoView({ behavior: "smooth", block: "start" });
+      // Scroll to wrapper (header's parent) so title + some context visible
+      (header?.parentElement || header || el).scrollIntoView({ behavior: "smooth", block: "start" });
     } else if (++tries < 30) {
       setTimeout(tryScroll, 100);
     }
@@ -2557,7 +2565,7 @@ function showDetail(id) {
   document.getElementById("detail-content").innerHTML = `
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
       <div id="detail-img-wrap" class="ghost-border overflow-hidden">
-        <img src="${photo.url}" alt="${photo.location}" class="w-full object-contain max-h-[80vh]"/>
+        <img src="${photo.url}" alt="${photo.location}" class="w-full object-contain max-h-[80vh] cursor-zoom-in" onclick="openLightbox('${photo.url}')"/>
       </div>
       <div class="lg:pt-8">
         <p class="text-xs tracking-widest uppercase text-on-surface-variant mb-2">${photo.date}</p>
@@ -2730,11 +2738,92 @@ function observeReveal() {
     });
   }, {
     threshold: 0,
-    rootMargin: '0px 0px 100px 0px'
+    rootMargin: '0px 0px 300px 0px'
   });
 
   targets.forEach(el => revealObserver.observe(el));
 }
+
+/* ═══════════════════════════════════════════════════════════
+   LIGHTBOX — fullscreen photo viewer with scroll-to-zoom
+═══════════════════════════════════════════════════════════ */
+let lbState = { scale: 1, panX: 0, panY: 0, dragging: false, sx: 0, sy: 0 };
+
+function openLightbox(url) {
+  const lb = document.getElementById("lightbox");
+  const img = document.getElementById("lightbox-img");
+  img.src = url;
+  lb.classList.remove("hidden");
+  document.body.style.overflow = "hidden";
+  lbState = { scale: 1, panX: 0, panY: 0, dragging: false, sx: 0, sy: 0 };
+  applyLbTransform();
+}
+
+function closeLightbox() {
+  document.getElementById("lightbox").classList.add("hidden");
+  document.body.style.overflow = "";
+  lbState.scale = 1; lbState.panX = 0; lbState.panY = 0;
+}
+
+function applyLbTransform() {
+  const img = document.getElementById("lightbox-img");
+  img.style.transform = `scale(${lbState.scale}) translate(${lbState.panX}px,${lbState.panY}px)`;
+}
+
+// Wheel zoom
+document.addEventListener("DOMContentLoaded", () => {
+  const lbImg = document.getElementById("lightbox-img");
+  if (!lbImg) return;
+
+  lbImg.addEventListener("wheel", e => {
+    e.preventDefault();
+    const d = e.deltaY > 0 ? -0.15 : 0.15;
+    lbState.scale = Math.max(0.5, Math.min(6, lbState.scale + d));
+    applyLbTransform();
+  }, { passive: false });
+
+  // Drag pan (only when zoomed)
+  lbImg.addEventListener("mousedown", e => {
+    if (lbState.scale <= 1) return;
+    e.preventDefault();
+    lbState.dragging = true;
+    lbState.sx = e.clientX - lbState.panX;
+    lbState.sy = e.clientY - lbState.panY;
+    lbImg.classList.add("grabbing");
+  });
+
+  document.addEventListener("mousemove", e => {
+    if (!lbState.dragging) return;
+    lbState.panX = e.clientX - lbState.sx;
+    lbState.panY = e.clientY - lbState.sy;
+    applyLbTransform();
+  });
+
+  document.addEventListener("mouseup", () => {
+    if (!lbState.dragging) return;
+    lbState.dragging = false;
+    lbImg.classList.remove("grabbing");
+  });
+
+  // Touch pinch zoom
+  let pinchStartDist = 0, pinchStartScale = 1;
+  lbImg.addEventListener("touchstart", e => {
+    if (e.touches.length === 2) {
+      pinchStartDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+      pinchStartScale = lbState.scale;
+    }
+  }, { passive: true });
+
+  lbImg.addEventListener("touchmove", e => {
+    if (e.touches.length === 2) {
+      const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+      if (pinchStartDist > 0) {
+        lbState.scale = Math.max(0.5, Math.min(6, pinchStartScale * (dist / pinchStartDist)));
+        applyLbTransform();
+      }
+    }
+  }, { passive: true });
+});
 
 /* ═══════════════════════════════════════════════════════════
    INIT
@@ -2767,5 +2856,9 @@ document.addEventListener("DOMContentLoaded", () => {
   import exifr from 'https://cdn.jsdelivr.net/npm/exifr/dist/full.esm.js';
   window.exifr = exifr;
 </script>
+<div id="lightbox" class="hidden" onclick="closeLightbox()">
+  <button class="lb-close" onclick="closeLightbox()">&times;</button>
+  <img id="lightbox-img" src="" alt="" onclick="event.stopPropagation()" draggable="false"/>
+</div>
 </body>
 </html>
