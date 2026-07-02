@@ -860,16 +860,22 @@ function goBack() {
 
 function goToSanctuary(accId) {
   showView("home");
-  setTimeout(() => {
+  // Poll until the accordion element is rendered (loadTimeline is async)
+  let tries = 0;
+  const tryScroll = () => {
     const el = document.getElementById(accId);
-    if (!el) return;
-    if (!el.classList.contains("open")) {
-      el.classList.add("open");
-      const header = el.previousElementSibling;
-      if (header) header.classList.add("open");
+    if (el) {
+      if (!el.classList.contains("open")) {
+        el.classList.add("open");
+        const header = el.previousElementSibling;
+        if (header) header.classList.add("open");
+      }
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else if (++tries < 30) {
+      setTimeout(tryScroll, 100);
     }
-    el.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, 200);
+  };
+  setTimeout(tryScroll, 100);
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -2209,7 +2215,7 @@ async function loadChronicles() {
         <div class="text-8xl font-bold tracking-tighter leading-none mb-8 select-none" style="color:rgba(255,255,255,0.06)">${year}</div>
         <div class="relative pl-10 border-l border-white/10">
           ${locations.map(([loc, lPhotos], li) => {
-            const accId = `acc-${year}-${li}`;
+            const accId = "acc-" + year + "-" + loc.replace(/[^a-z0-9]/gi, "");
             lPhotos.sort((a, b) => b.date.localeCompare(a.date));
             const newestD = lPhotos[0].date;
             const oldestD = lPhotos[lPhotos.length - 1].date;
