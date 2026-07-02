@@ -1196,7 +1196,7 @@ async function uploadPhoto() {
   loadAdminGallery();
 }
 
-// Batch upload all files in queue
+// Batch upload all files in queue — parallel uploads + single index write
 async function uploadAllPhotos() {
   if (!batchQueue.length) { showStatus("No photos in queue.", "error"); return; }
   const cfg = getConfig();
@@ -1210,34 +1210,63 @@ async function uploadAllPhotos() {
   document.getElementById("btn-upload-all").disabled = true;
   document.getElementById("btn-upload-one").disabled = true;
 
-  let success = 0, fail = 0;
-  for (let i = 0; i < total; i++) {
-    const file = batchQueue[i];
-    progText.textContent = `Uploading ${i+1}/${total}: ${file.name}`;
-    progBar.style.width = `${Math.round((i/total)*100)}%`;
+  let completed = 0, success = 0, fail = 0;
+  const records = [];
+  const errors = [];
+
+  function tick() {
+    completed++;
+    progText.textContent = `Uploading ${completed}/${total}`;
+    progBar.style.width = `${Math.round((completed/total)*100)}%`;
+  }
+
+  // Step 1 — upload all images concurrently
+  const tasks = batchQueue.map(async (file) => {
     try {
-      await doUploadFile(file);
+      const record = await uploadPhotoFile(file);
+      records.push(record);
       success++;
     } catch (err) {
       fail++;
+      errors.push({ file: file.name, error: err.message });
       console.error(`Failed: ${file.name}`, err);
+    }
+    tick();
+  });
+  await Promise.all(tasks);
+
+  // Step 2 — write ALL records to index in ONE atomic operation
+  if (records.length > 0) {
+    progText.textContent = "Writing index…";
+    try {
+      await batchAddToIndex(records);
+    } catch (err) {
+      console.error("Index write failed:", err);
+      progText.textContent = `Uploaded ${success} images but index write failed`;
+      document.getElementById("btn-upload-all").disabled = false;
+      document.getElementById("btn-upload-one").disabled = false;
+      showStatus(`Images uploaded but index write failed: ${err.message}`, "error");
+      clearUpload();
+      loadAdminGallery();
+      return;
     }
   }
 
   progBar.style.width = "100%";
-  progText.textContent = `Done: ${success} uploaded`;
-  if (fail) progText.textContent += `, ${fail} failed`;
-  progr.classList.add("hidden");
+  const msg = `Done: ${success}/${total} uploaded`;
+  progText.textContent = fail ? msg + ` (${fail} failed)` : msg;
+
+  setTimeout(() => progr.classList.add("hidden"), 1500);
   document.getElementById("btn-upload-all").disabled = false;
   document.getElementById("btn-upload-one").disabled = false;
-  showStatus(`Uploaded ${success}/${total} photos` + (fail ? ` (${fail} failed)` : ""), fail ? "error" : "success");
+  showStatus(msg + (fail ? ` (${fail} failed)` : ""), fail ? "error" : "success");
 
-  // Clear queue and refresh
   clearUpload();
   loadAdminGallery();
 }
 
-async function doUploadFile(file) {
+// Core upload — pushes image to GitHub, returns record (no index write)
+async function uploadPhotoFile(file) {
   const cfg = getConfig();
   const exif = batchExifCache[file.name] || {};
 
@@ -1252,15 +1281,31 @@ async function doUploadFile(file) {
   const ext = file.name.split(".").pop().toLowerCase();
   const fileName = `photos/${id}.${ext}`;
 
-  const b64 = await fileToBase64(file);
-  const dim = await imageDimensions(file);
+  // Read file + dimensions in parallel before uploading
+  const [b64, dim] = await Promise.all([fileToBase64(file), imageDimensions(file)]);
 
   await putFile(fileName, b64, `Add photo: ${location} ${date}`);
   const rawUrl = `https://raw.githubusercontent.com/${cfg.owner}/${cfg.repo}/${cfg.branch}/${fileName}`;
 
   const year = date.slice(0,4);
   const month = date.slice(5,7);
-  await addPhotoToIndex({ id, url: rawUrl, location, date, year, month, category, camera, lens, caption, w: dim.w, h: dim.h });
+  return { id, url: rawUrl, location, date, year, month, category, camera, lens, caption, w: dim.w, h: dim.h };
+}
+
+// Single-photo upload (backward compat — upload + index write)
+async function doUploadFile(file) {
+  const record = await uploadPhotoFile(file);
+  await addPhotoToIndex(record);
+}
+
+// Batch index write — inserts many records in ONE atomic mutateIndex call
+async function batchAddToIndex(records) {
+  await mutateIndex(photos => {
+    for (const r of records) {
+      if (!photos.some(p => p.id === r.id)) photos.unshift(r);
+    }
+    return photos;
+  });
 }
 
 function fileToBase64(file) {
