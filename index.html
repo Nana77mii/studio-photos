@@ -654,11 +654,11 @@ body.fonts-ready { opacity:1; transition:opacity 0.15s; }
       <p class="text-xs tracking-widest uppercase text-on-surface-variant mb-6">Upload New Photo</p>
       
       <!-- Drop Zone -->
-      <div id="drop-zone" class="drop-zone rounded p-10 text-center mb-6 cursor-pointer" onclick="document.getElementById('file-input').click()">
+      <div id="drop-zone" class="drop-zone rounded p-10 text-center mb-6 relative">
         <span class="material-symbols-outlined text-4xl text-on-surface-variant mb-3 block">upload_file</span>
         <p class="text-sm text-on-surface-variant">Drop photos here or <span class="text-white underline">browse</span></p>
         <p class="text-xs text-on-surface-variant/50 mt-1">JPG, CR2, PNG, WEBP — max 50MB each · Select multiple</p>
-        <input id="file-input" type="file" accept="image/*,.cr2,.CR2" class="hidden" onchange="handleFileSelect(event)" multiple/>
+        <input id="file-input" type="file" accept="image/*,.cr2" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onchange="handleFileSelect(event)" multiple/>
       </div>
 
       <!-- File Queue -->
@@ -1078,7 +1078,10 @@ async function readBatchExif(file) {
   if (typeof exifr === "undefined") return;
   try {
     const exif = await exifr.parse(file, {
-      pick: ["DateTimeOriginal","Make","Model","LensModel","FNumber","ExposureTime","ISO","FocalLength"]
+      pick: ["DateTimeOriginal","Make","Model","LensModel","FNumber","ExposureTime","ISO","FocalLength",
+             "Flash","ExposureCompensation","WhiteBalance","ExposureProgram","MeteringMode",
+             "GPSLatitude","GPSLongitude","GPSLatitudeRef","GPSLongitudeRef",
+             "Artist","Copyright","ImageDescription","Orientation"]
     });
     if (!exif) return;
     const entry = {};
@@ -1101,8 +1104,29 @@ async function readBatchExif(file) {
       settings.push(et < 1 ? `1/${Math.round(1/et)}s` : `${et}s`);
     }
     if (exif.ISO) settings.push(`ISO ${exif.ISO}`);
+    if (exif.Flash !== undefined && exif.Flash !== null) settings.push(exif.Flash ? "Flash" : "No Flash");
+    if (exif.ExposureCompensation !== undefined && exif.ExposureCompensation !== 0) {
+      const ev = exif.ExposureCompensation;
+      settings.push(`EV ${ev > 0 ? "+" : ""}${ev}`);
+    }
     if (settings.length) lensParts.push(settings.join("  "));
     entry.lens = lensParts.join(" | ");
+
+    // GPS coordinates
+    if (exif.GPSLatitude !== undefined && exif.GPSLongitude !== undefined) {
+      const lat = exif.GPSLatitude;
+      const lon = exif.GPSLongitude;
+      const latRef = exif.GPSLatitudeRef || (lat >= 0 ? "N" : "S");
+      const lonRef = exif.GPSLongitudeRef || (lon >= 0 ? "E" : "W");
+      entry.gps = { lat: Math.abs(lat), lon: Math.abs(lon), latRef, lonRef };
+    }
+
+    // Extra metadata
+    if (exif.Artist) entry.artist = exif.Artist.trim();
+    if (exif.Copyright) entry.copyright = exif.Copyright.trim();
+    if (exif.ImageDescription) entry.caption = exif.ImageDescription.trim();
+    if (exif.WhiteBalance) entry.whiteBalance = exif.WhiteBalance;
+
     batchExifCache[file.name] = entry;
     renderQueue();
   } catch (err) {
@@ -1131,12 +1155,13 @@ function renderQueue() {
     const exif = batchExifCache[name] || {};
     const thumb = f.type.startsWith("image/") ? URL.createObjectURL(f) : "";
     const dateStr = exif.date ? `<span class="text-xs text-on-surface-variant/50 ml-2">${exif.date}</span>` : "";
+    const gpsStr = exif.gps ? `<span class="text-xs text-on-surface-variant/40 ml-1">📍${exif.gps.lat.toFixed(4)}°${exif.gps.latRef} ${exif.gps.lon.toFixed(4)}°${exif.gps.lonRef}</span>` : "";
     const camStr = exif.camera ? `<span class="text-xs text-on-surface-variant/50 block truncate">${exif.camera}${exif.lens?' · '+exif.lens:''}</span>` : "";
 
     return `<div class="flex items-center gap-3 p-2 rounded bg-white/[0.03] hover:bg-white/[0.05] transition-colors">
       ${thumb ? `<img src="${thumb}" class="w-10 h-10 object-cover rounded flex-shrink-0"/>` : `<div class="w-10 h-10 flex-shrink-0 rounded bg-white/5 flex items-center justify-center"><span class="material-symbols-outlined text-sm text-on-surface-variant">image</span></div>`}
       <div class="flex-1 min-w-0">
-        <div class="flex items-center"><span class="text-sm text-white truncate">${name}</span>${dateStr}</div>
+        <div class="flex items-center"><span class="text-sm text-white truncate">${name}</span>${dateStr}${gpsStr}</div>
         <div class="flex items-center gap-2"><span class="text-xs text-on-surface-variant">${size}</span>${camStr}</div>
       </div>
       <button onclick="removeFromQueue(${i})" class="text-on-surface-variant hover:text-red-400 transition-colors flex-shrink-0">
@@ -1275,7 +1300,7 @@ async function uploadPhotoFile(file) {
   const category = document.getElementById("meta-category").value;
   const camera   = exif.camera || document.getElementById("meta-camera").value.trim();
   const lens     = exif.lens || "";
-  const caption  = document.getElementById("meta-caption").value.trim();
+  const caption  = document.getElementById("meta-caption").value.trim() || exif.caption || "";
 
   const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   const ext = file.name.split(".").pop().toLowerCase();
@@ -1289,7 +1314,12 @@ async function uploadPhotoFile(file) {
 
   const year = date.slice(0,4);
   const month = date.slice(5,7);
-  return { id, url: rawUrl, location, date, year, month, category, camera, lens, caption, w: dim.w, h: dim.h };
+  const record = { id, url: rawUrl, location, date, year, month, category, camera, lens, caption, w: dim.w, h: dim.h };
+  if (exif.gps) record.gps = exif.gps;
+  if (exif.artist) record.artist = exif.artist;
+  if (exif.copyright) record.copyright = exif.copyright;
+  if (exif.whiteBalance) record.whiteBalance = exif.whiteBalance;
+  return record;
 }
 
 // Single-photo upload (backward compat — upload + index write)
@@ -1449,7 +1479,10 @@ async function exifFromUrl(url) {
   if (typeof exifr === "undefined") return {};
   let exif;
   try {
-    exif = await exifr.parse(url, { pick: ["DateTimeOriginal","Make","Model","LensModel","FNumber","ExposureTime","ISO","FocalLength"] });
+    exif = await exifr.parse(url, { pick: ["DateTimeOriginal","Make","Model","LensModel","FNumber","ExposureTime","ISO","FocalLength",
+                                            "Flash","ExposureCompensation","WhiteBalance",
+                                            "GPSLatitude","GPSLongitude","GPSLatitudeRef","GPSLongitudeRef",
+                                            "Artist","Copyright","ImageDescription"] });
   } catch { return {}; }
   if (!exif) return {};
   const out = {};
@@ -1465,8 +1498,22 @@ async function exifFromUrl(url) {
   if (exif.FNumber) s.push(`f/${exif.FNumber}`);
   if (exif.ExposureTime) s.push(exif.ExposureTime < 1 ? `1/${Math.round(1 / exif.ExposureTime)}s` : `${exif.ExposureTime}s`);
   if (exif.ISO) s.push(`ISO ${exif.ISO}`);
+  if (exif.Flash !== undefined && exif.Flash !== null) s.push(exif.Flash ? "Flash" : "No Flash");
+  if (exif.ExposureCompensation !== undefined && exif.ExposureCompensation !== 0) {
+    s.push(`EV ${exif.ExposureCompensation > 0 ? "+" : ""}${exif.ExposureCompensation}`);
+  }
   if (s.length) lensParts.push(s.join("  "));
   if (lensParts.length) out.lens = lensParts.join(" | ");
+  if (exif.GPSLatitude !== undefined && exif.GPSLongitude !== undefined) {
+    const lat = exif.GPSLatitude, lon = exif.GPSLongitude;
+    out.gps = { lat: Math.abs(lat), lon: Math.abs(lon),
+                latRef: exif.GPSLatitudeRef || (lat >= 0 ? "N" : "S"),
+                lonRef: exif.GPSLongitudeRef || (lon >= 0 ? "E" : "W") };
+  }
+  if (exif.Artist) out.artist = exif.Artist.trim();
+  if (exif.Copyright) out.copyright = exif.Copyright.trim();
+  if (exif.ImageDescription) out.caption = exif.ImageDescription.trim();
+  if (exif.WhiteBalance) out.whiteBalance = exif.WhiteBalance;
   return out;
 }
 
