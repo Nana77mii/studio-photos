@@ -117,6 +117,14 @@ body.fonts-ready { opacity:1; transition:opacity 0.15s; }
 .ecb.on { background:rgba(255,255,255,0.9); color:#141313; }
 .gallery-card.edit-active { cursor:grab; outline:1px dashed rgba(255,255,255,0.28); }
 .gallery-card.edit-active:active { cursor:grabbing; }
+
+/* ── Resize handles (edit mode) ── */
+.resize-h { position:absolute; width:14px; height:14px; background:#fff; border:2px solid #141313; border-radius:2px; z-index:31; display:none; }
+.gallery-card.edit-active .resize-h { display:block; }
+.resize-h.tl { top:-7px; left:-7px; cursor:nwse-resize; }
+.resize-h.tr { top:-7px; right:-7px; cursor:nesw-resize; }
+.resize-h.bl { bottom:-7px; left:-7px; cursor:nesw-resize; }
+.resize-h.br { bottom:-7px; right:-7px; cursor:nwse-resize; }
 .gallery-card.drag-over { outline:2px solid rgba(255,255,255,0.7); }
 
 .ghost-border { border:1px solid rgba(255,255,255,0.08); }
@@ -2277,15 +2285,21 @@ function renderPhotoGrid(photos) {
   const card = (p, idx) => {
     const r = ratioOf(p);
     const delay = (idx * 0.06).toFixed(2); // staggered reveal
+    const savedScale = (editModeActive ? editLayouts : layouts)[p.id]?.scale || 1;
+    const scaleStyle = savedScale !== 1 ? `transform:scale(${savedScale});` : '';
     const editCtrl = editModeActive ? `
       <div class="edit-card-ctrl">
         <button class="ecb" onclick="event.stopPropagation();movePhoto('${p.id}',-1)" title="Move earlier">←</button>
         <span class="text-[10px] tracking-widest text-white/50">${r >= 1 ? 'LANDSCAPE' : 'PORTRAIT'}</span>
         <button class="ecb" onclick="event.stopPropagation();movePhoto('${p.id}',1)" title="Move later">→</button>
-      </div>` : '';
+      </div>
+      <div class="resize-h tl" onmousedown="onResizeStart(event,'${p.id}')"></div>
+      <div class="resize-h tr" onmousedown="onResizeStart(event,'${p.id}')"></div>
+      <div class="resize-h bl" onmousedown="onResizeStart(event,'${p.id}')"></div>
+      <div class="resize-h br" onmousedown="onResizeStart(event,'${p.id}')"></div>` : '';
     return `
       <div id="card-${p.id}" class="gallery-card ghost-border cursor-pointer reveal-card ${editModeActive ? 'edit-active' : ''}"
-           style="--r:${r.toFixed(4)};transition-delay:${delay}s"
+           style="--r:${r.toFixed(4)};transition-delay:${delay}s;${scaleStyle}"
            onclick="${editModeActive ? '' : `showDetail('${p.id}')`}"
            ${editModeActive ? `draggable="true" ondragstart="onEditDragStart(event,'${p.id}')" ondragover="onEditDragOver(event)" ondragleave="onEditDragLeave(event)" ondrop="onEditDrop(event,'${p.id}')"` : ''}>
         <img src="${p.url}" alt="${p.location}" class="gallery-img" loading="lazy"/>
@@ -2341,6 +2355,7 @@ function enterEditMode() {
     grp.forEach((p, i) => {
       editLayouts[p.id] = {
         order: siteSettings.photoLayouts?.[p.id]?.order ?? i,
+        scale: siteSettings.photoLayouts?.[p.id]?.scale ?? 1,
       };
     });
   });
@@ -2418,6 +2433,50 @@ function onEditDrop(e, targetId) {
   editLayouts[targetId].order = tmpOrder;
   editDragSrc = null;
   rerenderTimeline();
+}
+
+/* ── Resize handles (corner drag, aspect-ratio locked) ── */
+let resizeState = null;
+
+function onResizeStart(e, photoId) {
+  e.preventDefault(); e.stopPropagation();
+  const card = document.getElementById('card-' + photoId);
+  if (!card) return;
+  const rect = card.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+  resizeState = {
+    photoId, card,
+    startDist: Math.hypot(e.clientX - cx, e.clientY - cy),
+    startScale: editLayouts[photoId]?.scale || 1,
+  };
+  card.style.zIndex = '50';
+  card.style.transition = 'none';
+  document.addEventListener('mousemove', onResizeMove);
+  document.addEventListener('mouseup', onResizeEnd);
+}
+
+function onResizeMove(e) {
+  if (!resizeState) return;
+  const { card, startDist, startScale } = resizeState;
+  const rect = card.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+  const curDist = Math.hypot(e.clientX - cx, e.clientY - cy);
+  if (startDist < 5) return;
+  const scale = Math.max(0.3, Math.min(3, startScale * (curDist / startDist)));
+  card.style.transform = `scale(${scale})`;
+}
+
+function onResizeEnd() {
+  if (!resizeState) return;
+  const { photoId, card } = resizeState;
+  const match = card.style.transform.match(/scale\(([\d.]+)\)/);
+  const scale = match ? parseFloat(match[1]) : 1;
+  editLayouts[photoId] = { ...editLayouts[photoId], scale };
+  card.style.zIndex = '';
+  card.style.transition = '';
+  resizeState = null;
+  document.removeEventListener('mousemove', onResizeMove);
+  document.removeEventListener('mouseup', onResizeEnd);
 }
 
 function rerenderTimeline() {
@@ -2670,8 +2729,8 @@ function observeReveal() {
       }
     });
   }, {
-    threshold: 0.25,
-    rootMargin: '0px 0px -40px 0px'
+    threshold: 0,
+    rootMargin: '0px 0px 100px 0px'
   });
 
   targets.forEach(el => revealObserver.observe(el));
