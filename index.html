@@ -206,67 +206,6 @@ body.fonts-ready { opacity:1; transition:opacity 0.15s; }
 .status-bar.success { border-color:rgba(120,220,120,.4); color:#7fdc7f; }
 .status-bar.error { border-color:rgba(220,80,80,.4); color:#dc5050; }
 
-/* ── 3D Cylinder Carousel ── */
-/* Full-viewport snap sections */
-.snap-container { scroll-snap-type:y mandatory; overflow-y:auto; overflow-x:hidden; height:100vh; }
-.snap-section { scroll-snap-align:start; scroll-snap-stop:always; height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative; overflow:visible; }
-/* Year hero (transition card) */
-.year-hero { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; }
-.year-hero .year-num {
-  font-size:min(22vw,260px); font-weight:900; letter-spacing:-0.04em; line-height:1;
-  color:rgba(255,255,255,0.04); transition:color 0.6s, transform 0.8s cubic-bezier(0.2,0.8,0.2,1);
-}
-.snap-section.in-view .year-num { color:rgba(255,255,255,0.08); }
-/* Location header */
-.location-header { text-align:center; z-index:5; margin-bottom:1rem; }
-.location-header .loc-name { font-size:clamp(1.5rem,4vw,3.5rem); font-weight:700; letter-spacing:-0.02em; color:#fff; }
-.location-header .loc-date { font-size:0.75rem; letter-spacing:0.15em; color:rgba(255,255,255,0.3); margin-top:0.3rem; }
-/* Carousel stage: 3D cylinder */
-.carousel-stage {
-  position:relative; width:100%; height:55vh; overflow:visible;
-  perspective:1400px; perspective-origin:50% 45%;
-  display:flex; align-items:center; justify-content:center;
-  cursor:grab; user-select:none; -webkit-user-select:none;
-  touch-action:pan-y; /* let vertical scroll pass through */
-}
-.carousel-stage:active, .carousel-stage.dragging { cursor:grabbing; }
-.carousel-stage .carousel-glow {
-  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
-  width:60vmin; height:60vmin; max-width:600px; max-height:600px;
-  border-radius:50%; pointer-events:none; z-index:0;
-  background:radial-gradient(ellipse at center, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.015) 35%, transparent 70%);
-  transition:width 0.5s ease, height 0.5s ease;
-}
-.carousel-photo {
-  position:absolute; z-index:2; top:50%; left:50%;
-  transform-origin:50% 50%;
-  transition:transform 0.55s cubic-bezier(0.2,0.8,0.2,1), opacity 0.55s ease;
-  will-change:transform, opacity;
-}
-.carousel-photo.no-transition { transition:none !important; }
-.carousel-photo img {
-  display:block; border-radius:3px;
-  box-shadow:0 2px 20px rgba(0,0,0,0.45);
-  border:1.5px solid rgba(255,255,255,0.06);
-  pointer-events:none; width:auto; height:auto;
-}
-.carousel-photo.center { z-index:30 !important; }
-.carousel-photo.center img {
-  border-color:rgba(255,255,255,0.28);
-  box-shadow:0 4px 40px rgba(0,0,0,0.6);
-  cursor:zoom-in; pointer-events:auto;
-}
-.carousel-photo.landscape img { max-width:min(72vw, 960px); max-height:52vh; }
-.carousel-photo.portrait  img { max-width:min(44vw, 500px); max-height:58vh; }
-/* Photo metadata bar */
-.photo-meta-bar {
-  margin-top:0.8rem; text-align:center; z-index:5;
-  font-size:0.7rem; letter-spacing:0.06em; color:rgba(255,255,255,0.25);
-  max-width:90vw; transition:opacity 0.4s;
-}
-.photo-meta-bar span { display:block; }
-.photo-meta-bar .meta-lens { font-size:0.65rem; color:rgba(255,255,255,0.18); margin-top:0.15rem; }
-
 /* ── Bulk Edit ── */
 .bulk-checkbox {
   position:absolute; top:6px; left:6px; z-index:10;
@@ -566,9 +505,8 @@ body.fonts-ready { opacity:1; transition:opacity 0.15s; }
 ═══════════════════════════════════════════════════════════ -->
 <div id="view-home" class="view active pt-0">
 
-    <div id="snap-root" class="snap-container">
-    <!-- Hero (snap 0) -->
-  <section class="snap-section">
+  <!-- Hero -->
+  <section class="relative w-full h-screen flex items-center justify-center overflow-hidden">
     <div class="absolute inset-0" style="background:radial-gradient(ellipse 120% 100% at 50% 0%, #2a2826 0%, #1a1918 45%, #141313 100%)">
       <img id="hero-bg" alt="Hero" class="w-full h-full object-cover hero-img-in" style="display:none"
            onload="this.style.display=''" onerror="this.style.display='none'"/>
@@ -582,14 +520,15 @@ body.fonts-ready { opacity:1; transition:opacity 0.15s; }
     </div>
   </section>
 
-  <!-- Timeline (JS-populated) -->
-  <div id="timeline-container">
-    <div class="snap-section flex items-center justify-center" id="timeline-loading-section">
-      <p class="text-on-surface-variant text-sm tracking-widest uppercase" id="timeline-loading">Loading portfolio…</p>
+  <!-- Timeline -->
+  <section id="timeline-section" class="py-16 md:py-40 bg-[#141313]">
+    <div id="timeline-container" class="px-6 md:px-20 overflow-x-hidden">
+      <div class="text-center text-on-surface-variant py-20 text-sm tracking-widest uppercase" id="timeline-loading">
+        Loading portfolio…
+      </div>
     </div>
-  </div>
-  </div><!-- /snap-root -->
-</div><!-- /view-home -->
+  </section>
+</div>
 
 <!-- ═══════════════════════════════════════════════════════════
      VIEW 2: CHRONICLES
@@ -1048,20 +987,18 @@ function goBack() {
 
 function goToSanctuary(accId) {
   showView("home");
-  // accId format: "acc-YYYY-locationname"
-  // Find the matching snap-section with data-carousel containing the location
+  // Poll until the accordion element is rendered (loadTimeline is async)
   let tries = 0;
   const tryScroll = () => {
-    const snapRoot = document.getElementById("snap-root");
-    if (!snapRoot) { if (++tries < 30) setTimeout(tryScroll, 100); return; }
-    // Parse year + location from accId: "acc-2025-shanghai"
-    const parts = accId.replace(/^acc-/, "").split("-");
-    const year = parts[0];
-    // Find the year-hero section for this year
-    const yearSection = snapRoot.querySelector(`.snap-section[data-year="${year}"]`);
-    const target = yearSection || snapRoot.querySelector(".snap-section[data-carousel]");
-    if (target) {
-      snapRoot.scrollTo({ top: target.offsetTop, behavior: "smooth" });
+    const el = document.getElementById(accId);
+    if (el) {
+      const header = el.previousElementSibling;
+      if (!el.classList.contains("open")) {
+        el.classList.add("open");
+        if (header) header.classList.add("open");
+      }
+      // Scroll to wrapper (header's parent) so title + some context visible
+      (header?.parentElement || header || el).scrollIntoView({ behavior: "smooth", block: "start" });
     } else if (++tries < 30) {
       setTimeout(tryScroll, 100);
     }
@@ -2867,10 +2804,6 @@ function rerenderTimeline() {
   const photos = photosCache;
   if (!container || photos.length === 0) return;
   if (loading) loading.style.display = "none";
-  // Remove loading placeholder section if present
-  const loadSection = document.getElementById("timeline-loading-section");
-  if (loadSection) loadSection.remove();
-
   const byYear = {};
   photos.forEach(p => {
     if (!byYear[p.year]) byYear[p.year] = {};
@@ -2878,299 +2811,59 @@ function rerenderTimeline() {
     byYear[p.year][p.location].push(p);
   });
   const years = Object.keys(byYear).sort((a, b) => b - a);
-
-  let html = '';
-  years.forEach((year) => {
-    // Year hero transition section
-    html += `<div class="snap-section" data-year="${year}">
-      <div class="year-hero"><span class="year-num">${year}</span></div>
-    </div>`;
-
-    const locs = Object.entries(byYear[year])
-      .sort(([, a], [, b]) => b[0].date.localeCompare(a[0].date));
-
-    locs.forEach(([loc, lPhotos]) => {
-      lPhotos.sort((a, b) => b.date.localeCompare(a.date));
-      const newestD = lPhotos[0].date;
-      const oldestD = lPhotos[lPhotos.length - 1].date;
-      const dateLabel = newestD === oldestD ? newestD : `${oldestD} – ${newestD}`;
-      const carouselId = "car-" + year + "-" + loc.replace(/[^a-z0-9]/gi, "");
-      const layouts = siteSettings.photoLayouts || {};
-      const ordered = [...lPhotos].sort((a, b) =>
-        (layouts[a.id]?.order ?? 999) - (layouts[b.id]?.order ?? 999)
-      );
-
-      if (editModeActive) {
-        html += `<div class="snap-section">
-          <div class="location-header"><div class="loc-name">${loc}</div><div class="loc-date">${dateLabel}</div></div>
-          <div class="w-full max-w-6xl px-4">${renderPhotoGrid(lPhotos)}</div>
-        </div>`;
-      } else {
-        html += `<div class="snap-section" data-location="${loc}" data-carousel="${carouselId}">
-          <div class="location-header"><div class="loc-name">${loc}</div><div class="loc-date">${dateLabel}</div></div>
-          ${renderCarousel(carouselId, ordered)}
-          <div class="photo-meta-bar" id="meta-${carouselId}"></div>
-        </div>`;
-      }
-    });
-  });
-
-  container.innerHTML = html;
-  // Remove any extra sections (like the old loading one still in container)
-  initCarousels();
-  observeSnapSections();
-  lockSnapScroll();
-  // Scroll to specific photo
+  container.innerHTML = years.map((year, yi) => `
+    <div class="reveal-section mb-40">
+      <h2 class="reveal-year text-5xl md:text-9xl font-bold text-white tracking-tighter leading-none mb-6 md:mb-12">${year}</h2>
+      ${Object.entries(byYear[year])
+        .map(([loc, lPhotos]) => {
+          lPhotos.sort((a, b) => b.date.localeCompare(a.date)); // sort within group first
+          return [loc, lPhotos];
+        })
+        .sort(([, a], [, b]) => b[0].date.localeCompare(a[0].date)) // then sort groups by newest date
+        .map(([loc, lPhotos]) => {
+          const accordionId = "acc-" + year + "-" + loc.replace(/[^a-z0-9]/gi, "");
+          const newestD = lPhotos[0].date;
+          const oldestD = lPhotos[lPhotos.length - 1].date;
+          const dateLabel = newestD === oldestD ? newestD : `${oldestD} – ${newestD}`;
+          return `
+          <div class="mb-8">
+            <div class="accordion-header open cursor-pointer group flex items-center gap-4 mb-0"
+                 onclick="toggleAccordion('${accordionId}', this)">
+              <div class="flex-1 min-w-0">
+                <p class="timeline-location text-xl md:text-5xl font-bold text-white tracking-tight">${loc}</p>
+                <p class="text-sm text-on-surface-variant/40 tracking-widest mt-1.5">${dateLabel}</p>
+              </div>
+              <div class="h-px bg-white/10 flex-grow hidden sm:block"></div>
+              <span class="material-symbols-outlined text-2xl text-on-surface-variant acc-icon group-hover:text-white transition-colors flex-shrink-0">add</span>
+            </div>
+            <div id="${accordionId}" class="accordion-body open">
+              <div class="accordion-inner pt-8">
+                ${renderPhotoGrid(lPhotos)}
+              </div>
+            </div>
+          </div>`;
+      }).join("")}
+    </div>
+  `).join("");
+  // Observe newly rendered reveal elements
+  observeReveal();
+  // Scroll to specific photo if returning from detail view
   if (scrollToCardId) {
     const targetId = scrollToCardId;
     scrollToCardId = null;
     let tries = 0;
     const tryScroll = () => {
-      const section = document.querySelector(`.snap-section[data-carousel] .carousel-photo[data-id="${targetId}"]`);
-      if (section) {
-        const snapRoot = document.getElementById("snap-root");
-        const parent = section.closest(".snap-section");
-        if (parent && snapRoot) snapRoot.scrollTo({ top: parent.offsetTop, behavior: "smooth" });
-        // Also rotate carousel to this photo
-        const carouselId = parent?.dataset?.carousel;
-        if (carouselId) layoutCarousel(carouselId, parseInt(section.dataset.idx), true);
-      } else if (++tries < 20) {
+      const card = document.getElementById("card-" + targetId);
+      if (card) {
+        card.scrollIntoView({ behavior: "smooth", block: "center" });
+        card.style.outline = "2px solid rgba(255,255,255,0.35)";
+        setTimeout(() => { card.style.outline = ""; }, 2000);
+      } else if (++tries < 15) {
         setTimeout(tryScroll, 150);
       }
     };
     setTimeout(tryScroll, 200);
   }
-}
-
-/* ═══════════════════════════════════════════════════════════
-   3D CYLINDER CAROUSEL
-═══════════════════════════════════════════════════════════ */
-const carouselState = {};
-
-function renderCarousel(carouselId, photos) {
-  if (photos.length === 0) return "";
-  const prev = carouselState[carouselId];
-  const centerIdx = (prev && prev.centerIdx < photos.length) ? prev.centerIdx : 0;
-  carouselState[carouselId] = { centerIdx, photos, stageEl: null };
-  const isLandscape = (p) => !p.w || !p.h || p.w / p.h >= 0.9;
-  return `
-  <div class="carousel-stage" id="${carouselId}" data-carousel="${carouselId}">
-    <div class="carousel-glow"></div>
-    ${photos.map((p, i) => `
-    <div class="carousel-photo ${isLandscape(p) ? 'landscape' : 'portrait'}" data-idx="${i}" data-id="${p.id}"
-         onclick="onCarouselClick(event, '${carouselId}', ${i}, '${p.id}')">
-      <img src="${p.url}" alt="${p.location}" loading="${Math.abs(i - centerIdx) <= 2 ? 'eager' : 'lazy'}"/>
-    </div>`).join("")}
-  </div>`;
-}
-
-function layoutCarousel(carouselId, targetIdx, animate) {
-  const state = carouselState[carouselId];
-  if (!state) return;
-  const { photos } = state;
-  const stage = document.getElementById(carouselId);
-  if (!stage) return;
-  const photoEls = stage.querySelectorAll(".carousel-photo");
-  if (!photoEls.length) return;
-
-  const centerIdx = Math.max(0, Math.min(photos.length - 1, Math.round(targetIdx)));
-  state.centerIdx = centerIdx;
-
-  // Update glow shape
-  const cp = photos[centerIdx];
-  const cpIsLandscape = !cp.w || !cp.h || cp.w / cp.h >= 0.9;
-  const glow = stage.querySelector(".carousel-glow");
-  if (glow) {
-    glow.style.width  = cpIsLandscape ? "65vmin" : "45vmin";
-    glow.style.height = cpIsLandscape ? "45vmin" : "65vmin";
-  }
-
-  // Update metadata
-  const metaBar = document.getElementById("meta-" + carouselId);
-  if (metaBar) {
-    metaBar.innerHTML = cp.camera
-      ? `<span>${cp.camera}</span><span class="meta-lens">${cp.lens||""}</span>`
-      : "";
-  }
-
-  photoEls.forEach((el, i) => {
-    const dist = i - centerIdx;
-    const absDist = Math.abs(dist);
-    const sign = dist > 0 ? 1 : -1;
-    // 3D cylinder: angular step 18° for dense overlap
-    const angle = sign * absDist * 18;
-    const scale = Math.max(0.08, Math.pow(0.72, absDist));
-    const opacity = Math.max(0.04, Math.pow(0.45, absDist));
-    const zPx = absDist * -70;
-    // translateX: arc projection, capped
-    const xBase = sign * (1 - Math.pow(0.55, absDist)) * 48;
-
-    el.style.transform = `translate(-50%,-50%) rotateY(${angle.toFixed(1)}deg) translateX(${xBase.toFixed(1)}%) translateZ(${zPx}px) scale(${scale.toFixed(3)})`;
-    el.style.opacity = opacity.toFixed(3);
-    el.style.zIndex = absDist === 0 ? 30 : Math.max(1, 25 - absDist * 4);
-
-    el.classList.toggle("center", absDist === 0);
-    if (!animate) el.classList.add("no-transition");
-    else el.classList.remove("no-transition");
-  });
-
-  carouselState[carouselId] = { ...state, centerIdx, stageEl: stage };
-}
-
-function initCarousels() {
-  document.querySelectorAll(".carousel-stage").forEach(stage => {
-    const id = stage.dataset.carousel;
-    if (!id) return;
-    const state = carouselState[id];
-    if (!state) return;
-    layoutCarousel(id, state.centerIdx, false);
-    requestAnimationFrame(() => {
-      stage.querySelectorAll(".carousel-photo.no-transition").forEach(el => el.classList.remove("no-transition"));
-    });
-    bindCarouselDrag(stage, id);
-  });
-}
-
-function bindCarouselDrag(stage, carouselId) {
-  // Simple swipe detection: detect direction, advance exactly 1 photo
-  let startX = 0, startY = 0, dragging = false, swiped = false;
-
-  const onStart = (x, y) => {
-    const state = carouselState[carouselId];
-    if (!state) return;
-    dragging = true; swiped = false;
-    startX = x; startY = y;
-    stage.classList.add("dragging");
-  };
-  const onMove = (x, y) => {
-    if (!dragging || swiped) return;
-    const dx = x - startX;
-    const dy = y - startY;
-    // Horizontal swipe threshold: 30px
-    if (Math.abs(dx) > 30 && Math.abs(dx) > Math.abs(dy) * 1.2) {
-      swiped = true;
-      const state = carouselState[carouselId];
-      if (!state) return;
-      const dir = dx < 0 ? 1 : -1; // swipe left = next
-      const target = Math.max(0, Math.min(state.photos.length - 1, state.centerIdx + dir));
-      layoutCarousel(carouselId, target, true);
-    }
-    // If vertical movement dominates, cancel drag (let scroll pass through)
-    if (Math.abs(dy) > Math.abs(dx) * 1.2 && Math.abs(dy) > 20) {
-      dragging = false;
-      stage.classList.remove("dragging");
-    }
-  };
-  const onEnd = () => {
-    dragging = false; swiped = false;
-    stage.classList.remove("dragging");
-  };
-
-  stage.addEventListener("mousedown", e => { e.preventDefault(); onStart(e.clientX, e.clientY); });
-  window.addEventListener("mousemove", e => { if (dragging) onMove(e.clientX, e.clientY); });
-  window.addEventListener("mouseup", () => { if (dragging) onEnd(); });
-  stage.addEventListener("touchstart", e => { onStart(e.touches[0].clientX, e.touches[0].clientY); }, {passive:true});
-  stage.addEventListener("touchmove", e => { if (dragging) onMove(e.touches[0].clientX, e.touches[0].clientY); }, {passive:true});
-  stage.addEventListener("touchend", () => { if (dragging) onEnd(); });
-  // Wheel: advance exactly one photo
-  stage.addEventListener("wheel", e => {
-    e.preventDefault();
-    const state = carouselState[carouselId];
-    if (!state) return;
-    const dir = (e.deltaX > 0 || e.deltaY > 0) ? 1 : -1;
-    const target = Math.max(0, Math.min(state.photos.length - 1, state.centerIdx + dir));
-    layoutCarousel(carouselId, target, true);
-  }, {passive:false});
-}
-
-function onCarouselClick(e, carouselId, idx, photoId) {
-  const state = carouselState[carouselId];
-  if (!state) return;
-  // Side photo: rotate it to center
-  if (idx !== state.centerIdx) {
-    layoutCarousel(carouselId, idx, true);
-    return;
-  }
-  // Center photo: lightbox
-  const photo = photosCache.find(p => p.id === photoId);
-  if (photo) {
-    if (editModeActive) showDetail(photoId);
-    else openLightbox(photo.url);
-  }
-}
-
-// Keyboard: ← → on the nearest carousel
-document.addEventListener("keydown", e => {
-  if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-    if (document.activeElement && document.activeElement.tagName === "INPUT") return;
-    let best = null, bestDist = Infinity;
-    document.querySelectorAll(".carousel-stage").forEach(stage => {
-      const rect = stage.getBoundingClientRect();
-      const dist = Math.abs(rect.top + rect.height/2 - window.innerHeight/2);
-      if (dist < bestDist) { bestDist = dist; best = stage; }
-    });
-    if (!best) return;
-    const id = best.dataset.carousel;
-    const state = carouselState[id];
-    if (!state) return;
-    const dir = e.key === "ArrowRight" ? 1 : -1;
-    const target = Math.max(0, Math.min(state.photos.length - 1, state.centerIdx + dir));
-    layoutCarousel(id, target, true);
-  }
-});
-
-// Observe which snap section is in view for year-hero effect
-let _snapObserver = null;
-function observeSnapSections() {
-  if (typeof IntersectionObserver === "undefined") return;
-  if (_snapObserver) _snapObserver.disconnect();
-  _snapObserver = new IntersectionObserver(entries => {
-    entries.forEach(entry => {
-      entry.target.classList.toggle("in-view", entry.isIntersecting);
-    });
-  }, { threshold: 0.6 });
-  document.querySelectorAll(".snap-section").forEach(s => _snapObserver.observe(s));
-}
-
-// Lock snap-root to one section per swipe/scroll.
-// Only intercepts events OUTSIDE the carousel — carousel handles its own wheel/touch.
-function lockSnapScroll() {
-  const root = document.getElementById("snap-root");
-  if (!root || root.dataset.snapLocked) return;
-  root.dataset.snapLocked = "1";
-
-  let busy = false, touchStartY = 0, touchOnCarousel = false;
-  const viewH = () => root.clientHeight;
-  const currentIdx = () => Math.round(root.scrollTop / Math.max(1, viewH()));
-  const sections = () => root.querySelectorAll(".snap-section");
-  const go = (idx) => {
-    const max = Math.max(0, sections().length - 1);
-    root.scrollTo({ top: Math.max(0, Math.min(max, idx)) * viewH(), behavior: "smooth" });
-  };
-  const inCarousel = (el) => el && el.closest(".carousel-stage");
-
-  root.addEventListener("wheel", e => {
-    if (inCarousel(e.target)) return;      // let carousel handle its own wheel
-    e.preventDefault();
-    if (busy) return;
-    busy = true;
-    go(currentIdx() + (e.deltaY > 0 ? 1 : -1));
-    setTimeout(() => { busy = false; }, 700);
-  }, { passive: false });
-
-  root.addEventListener("touchstart", e => {
-    touchStartY = e.touches[0].clientY;
-    touchOnCarousel = inCarousel(e.target);
-  }, { passive: true });
-
-  root.addEventListener("touchend", e => {
-    if (touchOnCarousel || busy) return;
-    const dy = e.changedTouches[0].clientY - touchStartY;
-    if (Math.abs(dy) < 40) return;
-    busy = true;
-    go(currentIdx() + (dy < 0 ? 1 : -1));
-    setTimeout(() => { busy = false; }, 700);
-  });
 }
 
 /* ═══════════════════════════════════════════════════════════
