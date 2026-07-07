@@ -206,6 +206,46 @@ body.fonts-ready { opacity:1; transition:opacity 0.15s; }
 .status-bar.success { border-color:rgba(120,220,120,.4); color:#7fdc7f; }
 .status-bar.error { border-color:rgba(220,80,80,.4); color:#dc5050; }
 
+/* ── 3D Cylinder Carousel ── */
+.carousel-stage {
+  position:relative; width:100%; height:70vh; overflow:hidden;
+  display:flex; align-items:center; justify-content:center;
+  cursor:grab; user-select:none; -webkit-user-select:none;
+  touch-action:pan-y;
+}
+.carousel-stage:active, .carousel-stage.dragging { cursor:grabbing; }
+.carousel-stage .carousel-glow {
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  width:80vmin; height:80vmin; max-width:700px; max-height:700px;
+  border-radius:50%; pointer-events:none; z-index:1;
+  background:radial-gradient(ellipse at center, rgba(255,255,255,0.045) 0%, rgba(255,255,255,0.015) 35%, transparent 70%);
+  transition:width 0.5s ease, height 0.5s ease;
+}
+.carousel-photo {
+  position:absolute; z-index:2;
+  transition:transform 0.6s cubic-bezier(0.2,0.8,0.2,1),
+             opacity 0.6s cubic-bezier(0.2,0.8,0.2,1);
+  will-change:transform, opacity;
+}
+.carousel-photo.no-transition { transition:none !important; }
+.carousel-photo img {
+  display:block; border-radius:3px;
+  box-shadow:0 2px 16px rgba(0,0,0,0.4);
+  border:1.5px solid rgba(255,255,255,0.08);
+  pointer-events:none; max-height:68vh; max-width:88vw;
+  width:auto; height:auto;
+}
+.carousel-photo.center img {
+  border-color:rgba(255,255,255,0.25);
+  box-shadow:0 4px 32px rgba(0,0,0,0.55);
+  cursor:zoom-in; pointer-events:auto;
+}
+.carousel-photo.clickable img { pointer-events:auto; cursor:pointer; }
+/* Landscape photo: width-driven. Portrait: height-driven */
+.carousel-photo.landscape img { max-width:min(75vw, 1000px); max-height:60vh; }
+.carousel-photo.portrait  img { max-width:50vw; max-height:68vh; }
+.carousel-photo-edge { pointer-events:none; }
+
 /* ── Bulk Edit ── */
 .bulk-checkbox {
   position:absolute; top:6px; left:6px; z-index:10;
@@ -2825,6 +2865,15 @@ function rerenderTimeline() {
           const newestD = lPhotos[0].date;
           const oldestD = lPhotos[lPhotos.length - 1].date;
           const dateLabel = newestD === oldestD ? newestD : `${oldestD} – ${newestD}`;
+          const carouselId = "car-" + year + "-" + loc.replace(/[^a-z0-9]/gi, "");
+          // Sort photos by saved layout order
+          const layouts = siteSettings.photoLayouts || {};
+          const ordered = [...lPhotos].sort((a, b) =>
+            (layouts[a.id]?.order ?? 999) - (layouts[b.id]?.order ?? 999)
+          );
+          const carouselHTML = editModeActive
+            ? renderPhotoGrid(lPhotos)  // edit mode: keep drag-sortable grid
+            : renderCarousel(carouselId, ordered);
           return `
           <div class="mb-8">
             <div class="accordion-header open cursor-pointer group flex items-center gap-4 mb-0"
@@ -2838,13 +2887,15 @@ function rerenderTimeline() {
             </div>
             <div id="${accordionId}" class="accordion-body open">
               <div class="accordion-inner pt-8">
-                ${renderPhotoGrid(lPhotos)}
+                ${carouselHTML}
               </div>
             </div>
           </div>`;
       }).join("")}
     </div>
   `).join("");
+  // Initialize carousels after render
+  initCarousels();
   // Observe newly rendered reveal elements
   observeReveal();
   // Scroll to specific photo if returning from detail view
@@ -2865,6 +2916,188 @@ function rerenderTimeline() {
     setTimeout(tryScroll, 200);
   }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   3D CYLINDER CAROUSEL
+═══════════════════════════════════════════════════════════ */
+// State per carousel: carouselId → { centerIdx, targetIdx, photos, stageEl }
+const carouselState = {};
+
+function renderCarousel(carouselId, photos) {
+  if (photos.length === 0) return "";
+  // Restore previous center index or default to 0
+  const prev = carouselState[carouselId];
+  const centerIdx = (prev && prev.centerIdx < photos.length) ? prev.centerIdx : 0;
+  carouselState[carouselId] = { centerIdx, photos, stageEl: null, dragStartX: 0, dragStartIdx: 0 };
+  const isLandscape = (p) => !p.w || !p.h || p.w / p.h >= 0.9;
+  return `
+  <div class="carousel-stage" id="${carouselId}" data-carousel="${carouselId}">
+    <div class="carousel-glow"></div>
+    ${photos.map((p, i) => `
+    <div class="carousel-photo ${isLandscape(p) ? 'landscape' : 'portrait'}" data-idx="${i}" data-id="${p.id}"
+         onclick="onCarouselClick(event, '${carouselId}', ${i}, '${p.id}')">
+      <img src="${p.url}" alt="${p.location}" loading="${i <= centerIdx + 2 && i >= centerIdx - 2 ? 'eager' : 'lazy'}"/>
+    </div>`).join("")}
+  </div>`;
+}
+
+function layoutCarousel(carouselId, targetIdx, animate) {
+  const state = carouselState[carouselId];
+  if (!state) return;
+  const { photos } = state;
+  const stage = document.getElementById(carouselId);
+  if (!stage) return;
+  const photoEls = stage.querySelectorAll(".carousel-photo");
+  if (!photoEls.length) return;
+
+  const centerIdx = Math.max(0, Math.min(photos.length - 1, Math.round(targetIdx)));
+  state.centerIdx = centerIdx;
+  state.targetIdx = centerIdx;
+
+  // Update glow: match center photo orientation
+  const cp = photos[centerIdx];
+  const cpLandscape = !cp.w || !cp.h || cp.w / cp.h >= 0.9;
+  const glow = stage.querySelector(".carousel-glow");
+  if (glow) {
+    glow.style.width  = cpLandscape ? "80vmin" : "55vmin";
+    glow.style.height = cpLandscape ? "55vmin" : "80vmin";
+  }
+
+  photoEls.forEach((el, i) => {
+    const dist = i - centerIdx;
+    const absDist = Math.abs(dist);
+    const sign = dist > 0 ? 1 : -1;
+    // Dense: smaller angular step, more overlap
+    const angle = sign * absDist * 20;
+    const scale = Math.max(0.12, Math.pow(0.74, absDist));
+    const opacity = Math.max(0.06, Math.pow(0.5, absDist));
+    const z = absDist * -60;
+    const xPct = sign * (1 - Math.pow(0.6, absDist)) * 42;
+
+    el.style.transform = `rotateY(${angle.toFixed(1)}deg) translateX(${xPct.toFixed(1)}%) translateZ(${z}px) scale(${scale.toFixed(3)})`;
+    el.style.opacity = opacity.toFixed(3);
+    el.style.zIndex = absDist === 0 ? 20 : Math.max(1, 15 - absDist * 3);
+    el.classList.toggle("center", absDist === 0);
+    el.classList.toggle("carousel-photo-edge", absDist > 3);
+
+    if (!animate) el.classList.add("no-transition");
+    else el.classList.remove("no-transition");
+  });
+
+  // Save state
+  carouselState[carouselId] = { ...state, centerIdx, stageEl: stage };
+}
+
+function initCarousels() {
+  document.querySelectorAll(".carousel-stage").forEach(stage => {
+    const id = stage.dataset.carousel;
+    if (!id || carouselState[id]?.stageEl) return; // already initialized
+    const state = carouselState[id];
+    if (!state) return;
+    layoutCarousel(id, state.centerIdx, false);
+    // Remove no-transition after first paint so subsequent drags animate
+    requestAnimationFrame(() => {
+      stage.querySelectorAll(".carousel-photo.no-transition").forEach(el => el.classList.remove("no-transition"));
+    });
+    bindCarouselDrag(stage, id);
+  });
+}
+
+function bindCarouselDrag(stage, carouselId) {
+  let dragging = false, startX = 0, startIdx = 0, lastX = 0, velocity = 0, animFrame;
+
+  const onStart = (x) => {
+    const state = carouselState[carouselId];
+    if (!state) return;
+    dragging = true; startX = x; lastX = x; startIdx = state.centerIdx;
+    stage.classList.add("dragging");
+    stage.querySelectorAll(".carousel-photo").forEach(el => el.classList.add("no-transition"));
+    cancelAnimationFrame(animFrame);
+  };
+  const onMove = (x) => {
+    if (!dragging) return;
+    lastX = x;
+    const dx = x - startX;
+    const step = Math.min(stage.clientWidth / 8, 120); // denser: ~120px per photo step
+    const offset = -dx / step;
+    layoutCarousel(carouselId, startIdx + offset, false);
+  };
+  const onEnd = () => {
+    if (!dragging) return;
+    dragging = false;
+    stage.classList.remove("dragging");
+    stage.querySelectorAll(".carousel-photo").forEach(el => el.classList.remove("no-transition"));
+    const state = carouselState[carouselId];
+    if (!state) return;
+    // Snap with momentum
+    const dx = lastX - startX;
+    const step = Math.min(stage.clientWidth / 8, 120);
+    const momentum = dx / step;
+    const velocitySign = momentum > 0.1 ? 1 : momentum < -0.1 ? -1 : 0;
+    const snapTarget = Math.round(state.centerIdx + velocitySign * Math.min(1, Math.abs(momentum) * 0.5));
+    layoutCarousel(carouselId, snapTarget, true);
+  };
+
+  stage.addEventListener("mousedown", e => { e.preventDefault(); onStart(e.clientX); });
+  window.addEventListener("mousemove", e => { if (dragging) onMove(e.clientX); });
+  window.addEventListener("mouseup", () => { if (dragging) onEnd(); });
+  stage.addEventListener("touchstart", e => { onStart(e.touches[0].clientX); }, {passive:true});
+  stage.addEventListener("touchmove", e => { if (dragging) onMove(e.touches[0].clientX); }, {passive:true});
+  stage.addEventListener("touchend", () => { if (dragging) onEnd(); });
+  // Wheel: advance one photo per tick
+  stage.addEventListener("wheel", e => {
+    e.preventDefault();
+    const state = carouselState[carouselId];
+    if (!state) return;
+    const dir = e.deltaX > 0 || e.deltaY > 0 ? 1 : -1;
+    layoutCarousel(carouselId, state.centerIdx + dir, true);
+  }, {passive:false});
+  // Swipe momentum tracking
+  setInterval(() => {
+    if (!dragging && carouselState[carouselId]) {
+      velocity *= 0.85;
+    }
+  }, 50);
+}
+
+function onCarouselClick(e, carouselId, idx, photoId) {
+  const state = carouselState[carouselId];
+  if (!state) return;
+  // If clicking a side photo, rotate it to center
+  if (idx !== state.centerIdx) {
+    layoutCarousel(carouselId, idx, true);
+    return;
+  }
+  // Center photo clicked → lightbox
+  const photo = photosCache.find(p => p.id === photoId);
+  if (photo) {
+    if (editModeActive) {
+      showDetail(photoId);
+    } else {
+      openLightbox(photo.url);
+    }
+  }
+}
+
+// Keyboard: ← → on the carousel nearest to viewport center
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+    if (document.activeElement && document.activeElement.tagName === "INPUT") return;
+    // Find carousel most visible
+    let best = null, bestDist = Infinity;
+    document.querySelectorAll(".carousel-stage").forEach(stage => {
+      const rect = stage.getBoundingClientRect();
+      const dist = Math.abs(rect.top + rect.height/2 - window.innerHeight/2);
+      if (dist < bestDist) { bestDist = dist; best = stage; }
+    });
+    if (!best) return;
+    const id = best.dataset.carousel;
+    const state = carouselState[id];
+    if (!state) return;
+    const dir = e.key === "ArrowRight" ? 1 : -1;
+    layoutCarousel(id, state.centerIdx + dir, true);
+  }
+});
 
 /* ═══════════════════════════════════════════════════════════
    PHOTO DETAIL VIEW
