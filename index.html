@@ -206,6 +206,32 @@ body.fonts-ready { opacity:1; transition:opacity 0.15s; }
 .status-bar.success { border-color:rgba(120,220,120,.4); color:#7fdc7f; }
 .status-bar.error { border-color:rgba(220,80,80,.4); color:#dc5050; }
 
+/* ── Bulk Edit ── */
+.bulk-checkbox {
+  position:absolute; top:6px; left:6px; z-index:10;
+  width:20px; height:20px; border-radius:3px;
+  border:2px solid rgba(255,255,255,0.4); background:rgba(0,0,0,0.5);
+  display:none; align-items:center; justify-content:center;
+  cursor:pointer; transition:all 0.2s;
+}
+.bulk-checkbox.visible { display:flex; }
+.bulk-checkbox.checked { border-color:#fff; background:rgba(255,255,255,0.9); }
+.bulk-checkbox.checked::after { content:"✓"; color:#141313; font-size:12px; font-weight:700; line-height:1; }
+.bulk-checkbox:hover { border-color:rgba(255,255,255,0.8); }
+#bulk-bar {
+  position:fixed; bottom:0; left:0; right:0; z-index:200;
+  background:#1a1919; border-top:1px solid rgba(255,255,255,0.12);
+  padding:14px 24px; display:none; align-items:center; justify-content:space-between;
+  gap:16px; flex-wrap:wrap;
+}
+#bulk-bar.visible { display:flex; }
+#bulk-quick-select { background:#1c1c1c; border:1px solid rgba(255,255,255,0.15); color:#e5e2e1; border-radius:4px; padding:8px 14px; font-size:12px; cursor:pointer; }
+#bulk-quick-select option { background:#1c1c1c; }
+.bulk-chip { background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.12); border-radius:3px; padding:4px 12px; font-size:11px; cursor:pointer; transition:all 0.15s; display:inline-flex; align-items:center; gap:4px; }
+.bulk-chip:hover { background:rgba(255,255,255,0.15); }
+.bulk-chip.picked { background:rgba(255,255,255,0.22); border-color:rgba(255,255,255,0.4); }
+#bulk-edit-modal .admin-input:placeholder-shown { color:rgba(255,255,255,0.25); }
+
 /* ── Music Control ── */
 /* Vinyl record (top-right, inline) */
 #vinyl-wrap {
@@ -388,6 +414,58 @@ body.fonts-ready { opacity:1; transition:opacity 0.15s; }
     <div class="flex items-center gap-3">
       <button id="edit-save-btn" onclick="saveEditPhoto()" class="btn-primary text-xs">Save Changes</button>
       <div id="edit-progress" class="hidden text-xs text-on-surface-variant flex items-center gap-2">
+        <span class="material-symbols-outlined text-base animate-spin">autorenew</span> Saving…
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Bulk Edit Modal -->
+<div id="bulk-edit-modal" class="fixed inset-0 z-[100] flex items-center justify-center hidden">
+  <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeBulkEditModal()"></div>
+  <div class="relative ghost-border rounded bg-[#1a1919] p-8 w-full max-w-lg mx-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+    <button onclick="closeBulkEditModal()" class="absolute top-4 right-4 text-on-surface-variant hover:text-white transition-colors">
+      <span class="material-symbols-outlined text-base">close</span>
+    </button>
+    <p class="text-xs tracking-widest uppercase text-on-surface-variant mb-1">Bulk Edit</p>
+    <p class="text-sm text-white mb-6"><span id="bulk-edit-count">0</span> photos selected</p>
+    <p class="text-xs text-on-surface-variant/60 mb-4">Only filled fields will be applied. Leave blank to keep current value.</p>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+      <div>
+        <label class="text-xs text-on-surface-variant mb-1 block">Location</label>
+        <input id="bulk-location" class="admin-input text-sm" placeholder="Keep current"/>
+      </div>
+      <div>
+        <label class="text-xs text-on-surface-variant mb-1 block">Date</label>
+        <input id="bulk-date" type="date" class="admin-input text-sm" placeholder="Keep current"/>
+      </div>
+      <div>
+        <label class="text-xs text-on-surface-variant mb-1 block">Category</label>
+        <select id="bulk-category" class="admin-select text-sm">
+          <option value="">Keep current</option>
+          <option value="STREET">Street</option>
+          <option value="PORTRAIT">Portrait</option>
+          <option value="LANDSCAPE">Landscape</option>
+          <option value="ARCHITECTURE">Architecture</option>
+          <option value="ABSTRACT">Abstract</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs text-on-surface-variant mb-1 block">Camera</label>
+        <input id="bulk-camera" class="admin-input text-sm" placeholder="Keep current"/>
+      </div>
+      <div class="sm:col-span-2">
+        <label class="text-xs text-on-surface-variant mb-1 block">Lens / Settings</label>
+        <input id="bulk-lens" class="admin-input text-sm" placeholder="Keep current"/>
+      </div>
+      <div class="sm:col-span-2">
+        <label class="text-xs text-on-surface-variant mb-1 block">Caption / Note</label>
+        <input id="bulk-caption" class="admin-input text-sm" placeholder="Keep current"/>
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <button id="bulk-save-btn" onclick="applyBulkEdit()" class="btn-primary text-xs">Apply to <span id="bulk-save-count">0</span> Photos</button>
+      <div id="bulk-progress" class="hidden text-xs text-on-surface-variant flex items-center gap-2">
         <span class="material-symbols-outlined text-base animate-spin">autorenew</span> Saving…
       </div>
     </div>
@@ -737,11 +815,29 @@ body.fonts-ready { opacity:1; transition:opacity 0.15s; }
 
     <!-- Photo Library -->
     <div>
-      <div class="flex justify-between items-center mb-4">
+      <div class="flex justify-between items-center mb-4 flex-wrap gap-3">
         <p class="text-xs tracking-widest uppercase text-on-surface-variant">Photo Library</p>
-        <button onclick="loadAdminGallery()" class="text-xs text-on-surface-variant hover:text-white transition-colors flex items-center gap-1">
-          <span class="material-symbols-outlined text-sm">refresh</span> Refresh
-        </button>
+        <div class="flex items-center gap-3 flex-wrap">
+          <button id="btn-bulk-mode" onclick="toggleBulkMode()" class="text-xs text-on-surface-variant hover:text-white transition-colors flex items-center gap-1">
+            <span class="material-symbols-outlined text-sm">checklist</span> Bulk Select
+          </button>
+          <!-- Quick-select by field value (only visible in bulk mode) -->
+          <div id="bulk-quick-wrap" class="hidden flex items-center gap-2">
+            <span class="text-xs text-on-surface-variant/40">Quick:</span>
+            <select id="bulk-quick-field" class="text-xs bg-[#1c1c1c] border border-white/15 text-on-surface-variant rounded px-2 py-1.5" onchange="updateQuickValues()">
+              <option value="location">All in same location</option>
+              <option value="category">All in same category</option>
+              <option value="camera">All with same camera</option>
+            </select>
+            <select id="bulk-quick-value" class="text-xs bg-[#1c1c1c] border border-white/15 text-on-surface-variant rounded px-2 py-1.5">
+              <option value="">-- pick --</option>
+            </select>
+            <button onclick="selectMatchingPhotos()" class="text-xs text-white/60 hover:text-white transition-colors">Select</button>
+          </div>
+          <button onclick="loadAdminGallery()" class="text-xs text-on-surface-variant hover:text-white transition-colors flex items-center gap-1">
+            <span class="material-symbols-outlined text-sm">refresh</span> Refresh
+          </button>
+        </div>
       </div>
       <div id="photo-audit" class="hidden mb-4 rounded px-4 py-3 text-xs flex items-center justify-between gap-3 border">
         <span id="photo-audit-msg" class="flex items-center gap-2"></span>
@@ -752,6 +848,19 @@ body.fonts-ready { opacity:1; transition:opacity 0.15s; }
       </div>
     </div>
 
+  </div>
+</div>
+
+<!-- Bulk Action Bar (appears when photos selected in bulk mode) -->
+<div id="bulk-bar">
+  <div class="flex items-center gap-3">
+    <span class="text-xs text-white"><span id="bulk-selected-count">0</span> selected</span>
+    <button onclick="selectAllPhotos()" class="text-xs text-on-surface-variant hover:text-white transition-colors">Select All</button>
+    <button onclick="deselectAllPhotos()" class="text-xs text-on-surface-variant hover:text-white transition-colors">Deselect All</button>
+  </div>
+  <div class="flex items-center gap-3">
+    <button onclick="openBulkEdit()" class="btn-primary text-xs" id="bulk-edit-btn">Bulk Edit</button>
+    <button onclick="toggleBulkMode()" class="btn-ghost text-xs">Cancel</button>
   </div>
 </div>
 
@@ -780,6 +889,8 @@ let editingPhotoId = null;
 let editModeActive = false;
 let editLayouts = {};      // id → { order:number }
 let editDragSrc = null;
+let bulkMode = false;
+let bulkSelected = new Set(); // Set of selected photo IDs
 
 const FONT_OPTIONS = [
   { value: "",                    label: "Default" },
@@ -899,6 +1010,8 @@ function goToSanctuary(accId) {
    AUTH
 ═══════════════════════════════════════════════════════════ */
 function adminLogout() {
+  // Exit bulk mode if active
+  if (bulkMode) { bulkSelected.clear(); toggleBulkMode(); }
   localStorage.removeItem("gh_token");
   localStorage.removeItem("admin_authed");
   ghConfig.token = "";
@@ -1426,6 +1539,7 @@ async function loadAdminGallery() {
     }
     gallery.innerHTML = photos.map(p => `
       <div class="relative group">
+        <div class="bulk-checkbox" data-id="${p.id}" onclick="event.stopPropagation();togglePhotoSelect('${p.id}')"></div>
         <img src="${p.url}" class="photo-thumb w-full ghost-border" loading="lazy" alt="${p.location}"/>
         <div class="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 px-2">
           <p class="text-xs text-white text-center leading-tight">${p.location}<br/><span class="text-white/50">${p.date}</span></p>
@@ -1647,6 +1761,155 @@ async function saveEditPhoto() {
     showStatus("Photo updated!", "success");
   } catch (err) {
     showStatus("Save failed: " + err.message, "error");
+  } finally {
+    btn.disabled = false; prog.classList.add("hidden");
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BULK EDIT
+═══════════════════════════════════════════════════════════ */
+function toggleBulkMode() {
+  bulkMode = !bulkMode;
+  if (!bulkMode) {
+    bulkSelected.clear();
+    updateBulkUI();
+  }
+  // Show/hide checkboxes
+  document.querySelectorAll(".bulk-checkbox").forEach(cb => {
+    cb.classList.toggle("visible", bulkMode);
+  });
+  // Show/hide quick-select
+  document.getElementById("bulk-quick-wrap").classList.toggle("hidden", !bulkMode);
+  // Update toggle button text
+  const btn = document.getElementById("btn-bulk-mode");
+  if (bulkMode) {
+    btn.innerHTML = `<span class="material-symbols-outlined text-sm">close</span> Exit Bulk`;
+    btn.classList.add("text-white");
+  } else {
+    btn.innerHTML = `<span class="material-symbols-outlined text-sm">checklist</span> Bulk Select`;
+    btn.classList.remove("text-white");
+  }
+  updateBulkUI();
+  updateQuickValues();
+}
+
+function togglePhotoSelect(id) {
+  if (!bulkMode) return;
+  if (bulkSelected.has(id)) {
+    bulkSelected.delete(id);
+  } else {
+    bulkSelected.add(id);
+  }
+  updateBulkUI();
+}
+
+function selectAllPhotos() {
+  photosCache.forEach(p => bulkSelected.add(p.id));
+  updateBulkUI();
+}
+
+function deselectAllPhotos() {
+  bulkSelected.clear();
+  updateBulkUI();
+}
+
+function updateBulkUI() {
+  // Update checkbox states
+  document.querySelectorAll(".bulk-checkbox").forEach(cb => {
+    const id = cb.dataset.id;
+    cb.classList.toggle("checked", bulkSelected.has(id));
+  });
+  // Update bulk bar
+  const bar = document.getElementById("bulk-bar");
+  const count = bulkSelected.size;
+  document.getElementById("bulk-selected-count").textContent = count;
+  bar.classList.toggle("visible", bulkMode && count > 0);
+}
+
+function updateQuickValues() {
+  const field = document.getElementById("bulk-quick-field").value;
+  const sel = document.getElementById("bulk-quick-value");
+  // Collect unique non-empty values for this field
+  const vals = new Set();
+  photosCache.forEach(p => {
+    const v = (p[field] || "").trim();
+    if (v) vals.add(v);
+  });
+  sel.innerHTML = `<option value="">-- pick --</option>` +
+    [...vals].sort().map(v => `<option value="${v.replace(/"/g,"&quot;")}">${v}</option>`).join("");
+}
+
+function selectMatchingPhotos() {
+  const field = document.getElementById("bulk-quick-field").value;
+  const value = document.getElementById("bulk-quick-value").value;
+  if (!value) return;
+  photosCache.forEach(p => {
+    if ((p[field] || "").trim() === value) {
+      bulkSelected.add(p.id);
+    }
+  });
+  updateBulkUI();
+}
+
+function openBulkEdit() {
+  if (bulkSelected.size === 0) return;
+  document.getElementById("bulk-edit-count").textContent = bulkSelected.size;
+  document.getElementById("bulk-save-count").textContent = bulkSelected.size;
+  // Reset all fields
+  ["bulk-location","bulk-camera","bulk-lens","bulk-caption"].forEach(id => document.getElementById(id).value = "");
+  document.getElementById("bulk-date").value = "";
+  document.getElementById("bulk-category").value = "";
+  document.getElementById("bulk-edit-modal").classList.remove("hidden");
+}
+
+function closeBulkEditModal() {
+  document.getElementById("bulk-edit-modal").classList.add("hidden");
+}
+
+async function applyBulkEdit() {
+  if (bulkSelected.size === 0) return;
+  const location = document.getElementById("bulk-location").value.trim().toUpperCase() || null;
+  const date     = document.getElementById("bulk-date").value || null;
+  const category = document.getElementById("bulk-category").value || null;
+  const camera   = document.getElementById("bulk-camera").value.trim() || null;
+  const lens     = document.getElementById("bulk-lens").value.trim() || null;
+  const captionVal = document.getElementById("bulk-caption").value;
+  const captionSet = captionVal !== ""; // non-empty = set/overwrite caption on all selected
+
+  // Check if any field is actually set
+  if (!location && !date && !category && !camera && !lens && !captionSet) {
+    showStatus("Fill at least one field to apply.", "error");
+    return;
+  }
+
+  const count = bulkSelected.size; // capture before clearing
+  const selectedIds = new Set(bulkSelected); // snapshot for mutation
+
+  const btn = document.getElementById("bulk-save-btn");
+  const prog = document.getElementById("bulk-progress");
+  btn.disabled = true; prog.classList.remove("hidden");
+  try {
+    await mutateIndex(photos => {
+      for (const p of photos) {
+        if (!selectedIds.has(p.id)) continue;
+        if (location)   p.location = location;
+        if (date)       { p.date = date; p.year = date.slice(0,4); p.month = date.slice(5,7); }
+        if (category)   p.category = category;
+        if (camera)     p.camera = camera;
+        if (lens)       p.lens = lens;
+        if (captionSet) p.caption = captionVal;
+      }
+      return photos;
+    });
+    closeBulkEditModal();
+    // Exit bulk mode and refresh
+    bulkSelected.clear();
+    toggleBulkMode(); // toggle off
+    loadAdminGallery();
+    showStatus(`Bulk updated ${count} photos!`, "success");
+  } catch (err) {
+    showStatus("Bulk save failed: " + err.message, "error");
   } finally {
     btn.disabled = false; prog.classList.add("hidden");
   }
