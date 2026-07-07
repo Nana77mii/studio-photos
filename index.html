@@ -209,7 +209,7 @@ body.fonts-ready { opacity:1; transition:opacity 0.15s; }
 /* ── 3D Cylinder Carousel ── */
 /* Full-viewport snap sections */
 .snap-container { scroll-snap-type:y mandatory; overflow-y:auto; overflow-x:hidden; height:100vh; }
-.snap-section { scroll-snap-align:start; height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative; overflow:visible; }
+.snap-section { scroll-snap-align:start; scroll-snap-stop:always; height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative; overflow:visible; }
 /* Year hero (transition card) */
 .year-hero { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; }
 .year-hero .year-num {
