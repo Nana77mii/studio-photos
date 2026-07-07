@@ -1213,6 +1213,21 @@ function handleFileSelect(e) {
   e.target.value = ''; // reset so re-selecting works
 }
 
+// JPEG EXIF sometimes embeds shot settings (focal length, aperture, shutter, ISO)
+// into LensModel, making it "EF-S18-135mm f/3.5-5.6 IS USM 18mm f/3.5 1/160s ISO 2000".
+// Strip the shot-specific tail so the lens name stays clean; settings are parsed
+// separately from their own EXIF fields.
+function sanitizeLensModel(raw) {
+  if (!raw) return "";
+  // If LensModel contains shutter-speed or ISO markers, shot settings are embedded
+  if (/\b\d+\/\d+s\b/.test(raw) || /\bISO\s+\d+\b/i.test(raw)) {
+    // Strip from first occurrence of a shot-specific focal-length pattern
+    // (e.g. " 18mm" that follows the lens zoom range like "18-135mm")
+    return raw.replace(/\s+\d{2,4}mm\s+f\/[\d.]+\s+.*$/i, "").trim();
+  }
+  return raw.trim();
+}
+
 async function readBatchExif(file) {
   if (typeof exifr === "undefined") return;
   try {
@@ -1234,7 +1249,7 @@ async function readBatchExif(file) {
       entry.camera = (model.toLowerCase().startsWith(make.toLowerCase()) ? model : `${make} ${model}`).trim().toUpperCase();
     }
     const lensParts = [];
-    if (exif.LensModel) lensParts.push(exif.LensModel.trim());
+    if (exif.LensModel) lensParts.push(sanitizeLensModel(exif.LensModel));
     const settings = [];
     if (exif.FocalLength) settings.push(`${exif.FocalLength}mm`);
     if (exif.FNumber) settings.push(`f/${exif.FNumber}`);
@@ -1533,11 +1548,13 @@ async function loadAdminGallery() {
   try {
     const photos = await readIndex();
     photosCache = photos;
-    if (photos.length === 0) {
+    // Sort by date descending (newest first) for admin gallery
+    const sorted = [...photos].sort((a, b) => b.date.localeCompare(a.date));
+    if (sorted.length === 0) {
       gallery.innerHTML = `<div class="text-xs text-on-surface-variant/50 col-span-full py-8 text-center">No photos yet. Upload your first photo above.</div>`;
       return;
     }
-    gallery.innerHTML = photos.map(p => `
+    gallery.innerHTML = sorted.map(p => `
       <div class="relative group">
         <div class="bulk-checkbox" data-id="${p.id}" onclick="event.stopPropagation();togglePhotoSelect('${p.id}')"></div>
         <img src="${p.url}" class="photo-thumb w-full ghost-border" loading="lazy" alt="${p.location}"/>
@@ -1632,7 +1649,7 @@ async function exifFromUrl(url) {
     out.camera = (model.toLowerCase().startsWith(make.toLowerCase()) ? model : `${make} ${model}`).trim().toUpperCase();
   }
   const lensParts = [];
-  if (exif.LensModel) lensParts.push(exif.LensModel.trim());
+  if (exif.LensModel) lensParts.push(sanitizeLensModel(exif.LensModel));
   const s = [];
   if (exif.FocalLength) s.push(`${exif.FocalLength}mm`);
   if (exif.FNumber) s.push(`f/${exif.FNumber}`);
@@ -1868,10 +1885,29 @@ function openBulkEdit() {
   if (bulkSelected.size === 0) return;
   document.getElementById("bulk-edit-count").textContent = bulkSelected.size;
   document.getElementById("bulk-save-count").textContent = bulkSelected.size;
-  // Reset all fields
-  ["bulk-location","bulk-camera","bulk-lens","bulk-caption"].forEach(id => document.getElementById(id).value = "");
-  document.getElementById("bulk-date").value = "";
-  document.getElementById("bulk-category").value = "";
+
+  // Pre-fill each field with the common value if all selected photos share it,
+  // otherwise leave empty with a "(mixed)" placeholder.
+  const selected = photosCache.filter(p => bulkSelected.has(p.id));
+  const commonVal = (field) => {
+    const vals = new Set(selected.map(p => (p[field] || "").trim()).filter(Boolean));
+    return vals.size === 1 ? [...vals][0] : "";
+  };
+  const setField = (id, val, mixedLabel) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.value = val;
+    el.placeholder = val ? "" : `(${mixedLabel})`;
+  };
+  setField("bulk-location", commonVal("location"), "mixed");
+  setField("bulk-date",    commonVal("date"),     "mixed");
+  setField("bulk-camera",  commonVal("camera"),   "mixed");
+  setField("bulk-lens",    commonVal("lens"),     "mixed");
+  setField("bulk-caption", commonVal("caption"),  "mixed");
+  // Category: if all share same, set it; otherwise keep "Keep current" option
+  const cat = commonVal("category");
+  document.getElementById("bulk-category").value = cat;
+
   document.getElementById("bulk-edit-modal").classList.remove("hidden");
 }
 
@@ -2515,13 +2551,13 @@ async function loadChronicles() {
             const count = lPhotos.length;
             return `
               <div class="relative mb-6 last:mb-0 group cursor-pointer" onclick="goToSanctuary('${accId}')">
-                <div class="absolute -left-[2.6rem] top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full border border-white/20 bg-[#141313] group-hover:border-white group-hover:bg-white transition-all duration-300"></div>
-                <div class="flex items-center justify-between py-3 border-b border-white/5 group-hover:border-white/15 transition-colors">
-                  <div class="flex items-baseline gap-3 min-w-0 flex-1 mr-4">
-                    <span class="text-white font-semibold tracking-tight group-hover:opacity-70 transition-opacity truncate">${loc}</span>
-                    <span class="text-xs text-on-surface-variant/50 whitespace-nowrap flex-shrink-0">${count} ${count > 1 ? "frames" : "frame"}</span>
+                <div class="absolute -left-[2.6rem] top-3 w-2.5 h-2.5 rounded-full border border-white/20 bg-[#141313] group-hover:border-white group-hover:bg-white transition-all duration-300"></div>
+                <div class="py-3 border-b border-white/5 group-hover:border-white/15 transition-colors">
+                  <span class="text-white font-semibold tracking-tight group-hover:opacity-70 transition-opacity">${loc}</span>
+                  <div class="flex items-center justify-between mt-1.5">
+                    <span class="text-xs text-on-surface-variant/50">${count} ${count > 1 ? "frames" : "frame"}</span>
+                    <span class="text-xs text-on-surface-variant/40 tracking-widest tabular-nums">${dateLabel}</span>
                   </div>
-                  <span class="text-xs text-on-surface-variant/40 tracking-widest tabular-nums whitespace-nowrap flex-shrink-0">${dateLabel}</span>
                 </div>
               </div>`;
           }).join("")}
@@ -2793,9 +2829,12 @@ function rerenderTimeline() {
           <div class="mb-8">
             <div class="accordion-header open cursor-pointer group flex items-center gap-4 mb-0"
                  onclick="toggleAccordion('${accordionId}', this)">
-              <p class="timeline-location text-xl md:text-5xl font-bold text-white tracking-tight">${loc} — ${dateLabel}</p>
-              <div class="h-px bg-white/10 flex-grow"></div>
-              <span class="material-symbols-outlined text-2xl text-on-surface-variant acc-icon group-hover:text-white transition-colors">add</span>
+              <div class="flex-1 min-w-0">
+                <p class="timeline-location text-xl md:text-5xl font-bold text-white tracking-tight">${loc}</p>
+                <p class="text-sm text-on-surface-variant/40 tracking-widest mt-1.5">${dateLabel}</p>
+              </div>
+              <div class="h-px bg-white/10 flex-grow hidden sm:block"></div>
+              <span class="material-symbols-outlined text-2xl text-on-surface-variant acc-icon group-hover:text-white transition-colors flex-shrink-0">add</span>
             </div>
             <div id="${accordionId}" class="accordion-body open">
               <div class="accordion-inner pt-8">
