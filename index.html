@@ -3132,61 +3132,44 @@ function observeSnapSections() {
   document.querySelectorAll(".snap-section").forEach(s => _snapObserver.observe(s));
 }
 
-// Lock snap-root to one section per swipe/scroll
+// Lock snap-root to one section per swipe/scroll.
+// Only intercepts events OUTSIDE the carousel — carousel handles its own wheel/touch.
 function lockSnapScroll() {
   const root = document.getElementById("snap-root");
   if (!root || root.dataset.snapLocked) return;
   root.dataset.snapLocked = "1";
 
-  let busy = false, touchStartY = 0, touchLastY = 0;
-  const sections = () => root.querySelectorAll(".snap-section");
+  let busy = false, touchStartY = 0, touchOnCarousel = false;
   const viewH = () => root.clientHeight;
   const currentIdx = () => Math.round(root.scrollTop / Math.max(1, viewH()));
+  const sections = () => root.querySelectorAll(".snap-section");
   const go = (idx) => {
     const max = Math.max(0, sections().length - 1);
-    const target = Math.max(0, Math.min(max, idx));
-    root.scrollTo({ top: target * viewH(), behavior: "smooth" });
-    return target;
+    root.scrollTo({ top: Math.max(0, Math.min(max, idx)) * viewH(), behavior: "smooth" });
   };
-  const unlock = () => { setTimeout(() => { busy = false; }, 650); };
+  const inCarousel = (el) => el && el.closest(".carousel-stage");
 
-  // Wheel: one section per tick
   root.addEventListener("wheel", e => {
+    if (inCarousel(e.target)) return;      // let carousel handle its own wheel
     e.preventDefault();
     if (busy) return;
     busy = true;
     go(currentIdx() + (e.deltaY > 0 ? 1 : -1));
-    unlock();
+    setTimeout(() => { busy = false; }, 700);
   }, { passive: false });
 
-  // Touch: on release, snap to nearest section (max 1 away from start)
   root.addEventListener("touchstart", e => {
     touchStartY = e.touches[0].clientY;
-    touchLastY = touchStartY;
-    busy = false; // allow new gesture
+    touchOnCarousel = inCarousel(e.target);
   }, { passive: true });
-  root.addEventListener("touchmove", e => {
-    touchLastY = e.touches[0].clientY;
-  }, { passive: true });
-  root.addEventListener("touchend", () => {
-    if (busy) return;
-    const dy = touchLastY - touchStartY;
-    if (Math.abs(dy) < 30) return; // too small, let native snap handle
-    busy = true;
-    const startIdx = Math.round(root.scrollTop / Math.max(1, viewH()));
-    go(startIdx + (dy < 0 ? 1 : -1));
-    unlock();
-  });
 
-  // Keyboard: PageUp/PageDown
-  root.addEventListener("keydown", e => {
-    if (e.key === "PageDown" || e.key === "PageUp") {
-      e.preventDefault();
-      if (busy) return;
-      busy = true;
-      go(currentIdx() + (e.key === "PageDown" ? 1 : -1));
-      unlock();
-    }
+  root.addEventListener("touchend", e => {
+    if (touchOnCarousel || busy) return;
+    const dy = e.changedTouches[0].clientY - touchStartY;
+    if (Math.abs(dy) < 40) return;
+    busy = true;
+    go(currentIdx() + (dy < 0 ? 1 : -1));
+    setTimeout(() => { busy = false; }, 700);
   });
 }
 
