@@ -1434,7 +1434,7 @@ async function uploadPhotoFile(file) {
   const cfg = getConfig();
   const exif = batchExifCache[file.name] || {};
 
-  const location = document.getElementById("meta-location").value.trim().toUpperCase() || "UNKNOWN";
+  const location = document.getElementById("meta-location").value.trim() || "Unknown";
   const date     = exif.date || document.getElementById("meta-date").value || new Date().toISOString().slice(0,10);
   const category = document.getElementById("meta-category").value;
   const camera   = exif.camera || document.getElementById("meta-camera").value.trim();
@@ -1738,7 +1738,7 @@ function closeEditModal() {
 
 async function saveEditPhoto() {
   if (!editingPhotoId) return;
-  const location = document.getElementById("edit-location").value.trim().toUpperCase();
+  const location = document.getElementById("edit-location").value.trim();
   const date     = document.getElementById("edit-date").value;
   const category = document.getElementById("edit-category").value;
   const camera   = document.getElementById("edit-camera").value.trim();
@@ -1770,6 +1770,11 @@ async function saveEditPhoto() {
    BULK EDIT
 ═══════════════════════════════════════════════════════════ */
 function toggleBulkMode() {
+  // Guard: photos must be loaded first
+  if (!bulkMode && photosCache.length === 0) {
+    showStatus("Load photos first — configure GitHub and refresh.", "error");
+    return;
+  }
   bulkMode = !bulkMode;
   if (!bulkMode) {
     bulkSelected.clear();
@@ -1780,18 +1785,21 @@ function toggleBulkMode() {
     cb.classList.toggle("visible", bulkMode);
   });
   // Show/hide quick-select
-  document.getElementById("bulk-quick-wrap").classList.toggle("hidden", !bulkMode);
+  const quickWrap = document.getElementById("bulk-quick-wrap");
+  if (quickWrap) quickWrap.classList.toggle("hidden", !bulkMode);
   // Update toggle button text
   const btn = document.getElementById("btn-bulk-mode");
-  if (bulkMode) {
-    btn.innerHTML = `<span class="material-symbols-outlined text-sm">close</span> Exit Bulk`;
-    btn.classList.add("text-white");
-  } else {
-    btn.innerHTML = `<span class="material-symbols-outlined text-sm">checklist</span> Bulk Select`;
-    btn.classList.remove("text-white");
+  if (btn) {
+    if (bulkMode) {
+      btn.innerHTML = `<span class="material-symbols-outlined text-sm">close</span> Exit Bulk`;
+      btn.classList.add("text-white");
+    } else {
+      btn.innerHTML = `<span class="material-symbols-outlined text-sm">checklist</span> Bulk Select`;
+      btn.classList.remove("text-white");
+    }
   }
   updateBulkUI();
-  updateQuickValues();
+  if (bulkMode) updateQuickValues();
 }
 
 function togglePhotoSelect(id) {
@@ -1822,14 +1830,18 @@ function updateBulkUI() {
   });
   // Update bulk bar
   const bar = document.getElementById("bulk-bar");
+  if (!bar) return;
   const count = bulkSelected.size;
-  document.getElementById("bulk-selected-count").textContent = count;
+  const countEl = document.getElementById("bulk-selected-count");
+  if (countEl) countEl.textContent = count;
   bar.classList.toggle("visible", bulkMode && count > 0);
 }
 
 function updateQuickValues() {
-  const field = document.getElementById("bulk-quick-field").value;
+  const fieldEl = document.getElementById("bulk-quick-field");
   const sel = document.getElementById("bulk-quick-value");
+  if (!fieldEl || !sel) return;
+  const field = fieldEl.value;
   // Collect unique non-empty values for this field
   const vals = new Set();
   photosCache.forEach(p => {
@@ -1869,7 +1881,7 @@ function closeBulkEditModal() {
 
 async function applyBulkEdit() {
   if (bulkSelected.size === 0) return;
-  const location = document.getElementById("bulk-location").value.trim().toUpperCase() || null;
+  const location = document.getElementById("bulk-location").value.trim() || null;
   const date     = document.getElementById("bulk-date").value || null;
   const category = document.getElementById("bulk-category").value || null;
   const camera   = document.getElementById("bulk-camera").value.trim() || null;
@@ -2505,11 +2517,11 @@ async function loadChronicles() {
               <div class="relative mb-6 last:mb-0 group cursor-pointer" onclick="goToSanctuary('${accId}')">
                 <div class="absolute -left-[2.6rem] top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full border border-white/20 bg-[#141313] group-hover:border-white group-hover:bg-white transition-all duration-300"></div>
                 <div class="flex items-center justify-between py-3 border-b border-white/5 group-hover:border-white/15 transition-colors">
-                  <div class="flex items-baseline gap-3">
-                    <span class="text-white font-semibold tracking-tight group-hover:opacity-70 transition-opacity">${loc}</span>
-                    <span class="text-xs text-on-surface-variant/50">${count} ${count > 1 ? "frames" : "frame"}</span>
+                  <div class="flex items-baseline gap-3 min-w-0 flex-1 mr-4">
+                    <span class="text-white font-semibold tracking-tight group-hover:opacity-70 transition-opacity truncate">${loc}</span>
+                    <span class="text-xs text-on-surface-variant/50 whitespace-nowrap flex-shrink-0">${count} ${count > 1 ? "frames" : "frame"}</span>
                   </div>
-                  <span class="text-xs text-on-surface-variant/40 tracking-widest tabular-nums">${dateLabel}</span>
+                  <span class="text-xs text-on-surface-variant/40 tracking-widest tabular-nums whitespace-nowrap flex-shrink-0">${dateLabel}</span>
                 </div>
               </div>`;
           }).join("")}
