@@ -2919,6 +2919,7 @@ function rerenderTimeline() {
   // Remove any extra sections (like the old loading one still in container)
   initCarousels();
   observeSnapSections();
+  lockSnapScroll();
   // Scroll to specific photo
   if (scrollToCardId) {
     const targetId = scrollToCardId;
@@ -3129,6 +3130,64 @@ function observeSnapSections() {
     });
   }, { threshold: 0.6 });
   document.querySelectorAll(".snap-section").forEach(s => _snapObserver.observe(s));
+}
+
+// Lock snap-root to one section per swipe/scroll
+function lockSnapScroll() {
+  const root = document.getElementById("snap-root");
+  if (!root || root.dataset.snapLocked) return;
+  root.dataset.snapLocked = "1";
+
+  let busy = false, touchStartY = 0, touchLastY = 0;
+  const sections = () => root.querySelectorAll(".snap-section");
+  const viewH = () => root.clientHeight;
+  const currentIdx = () => Math.round(root.scrollTop / Math.max(1, viewH()));
+  const go = (idx) => {
+    const max = Math.max(0, sections().length - 1);
+    const target = Math.max(0, Math.min(max, idx));
+    root.scrollTo({ top: target * viewH(), behavior: "smooth" });
+    return target;
+  };
+  const unlock = () => { setTimeout(() => { busy = false; }, 650); };
+
+  // Wheel: one section per tick
+  root.addEventListener("wheel", e => {
+    e.preventDefault();
+    if (busy) return;
+    busy = true;
+    go(currentIdx() + (e.deltaY > 0 ? 1 : -1));
+    unlock();
+  }, { passive: false });
+
+  // Touch: on release, snap to nearest section (max 1 away from start)
+  root.addEventListener("touchstart", e => {
+    touchStartY = e.touches[0].clientY;
+    touchLastY = touchStartY;
+    busy = false; // allow new gesture
+  }, { passive: true });
+  root.addEventListener("touchmove", e => {
+    touchLastY = e.touches[0].clientY;
+  }, { passive: true });
+  root.addEventListener("touchend", () => {
+    if (busy) return;
+    const dy = touchLastY - touchStartY;
+    if (Math.abs(dy) < 30) return; // too small, let native snap handle
+    busy = true;
+    const startIdx = Math.round(root.scrollTop / Math.max(1, viewH()));
+    go(startIdx + (dy < 0 ? 1 : -1));
+    unlock();
+  });
+
+  // Keyboard: PageUp/PageDown
+  root.addEventListener("keydown", e => {
+    if (e.key === "PageDown" || e.key === "PageUp") {
+      e.preventDefault();
+      if (busy) return;
+      busy = true;
+      go(currentIdx() + (e.key === "PageDown" ? 1 : -1));
+      unlock();
+    }
+  });
 }
 
 /* ═══════════════════════════════════════════════════════════
