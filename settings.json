@@ -4,38 +4,14 @@
   "heroLine2": "Memory Cabin",
   "heroSub": "— a random collection of moments captured in time.",
   "typography": {
-    "heroTitle": {
-      "font": "Cormorant Garamond",
-      "size": "54"
-    },
-    "heroSub": {
-      "font": "Cormorant Garamond",
-      "size": "24"
-    },
-    "siteName": {
-      "font": "",
-      "size": ""
-    },
-    "navLinks": {
-      "font": "",
-      "size": ""
-    },
-    "yearLabel": {
-      "font": "Montserrat",
-      "size": "32"
-    },
-    "locationHead": {
-      "font": "Montserrat",
-      "size": "20"
-    },
-    "photoCaption": {
-      "font": "",
-      "size": ""
-    },
-    "bodyText": {
-      "font": "",
-      "size": ""
-    }
+    "heroTitle": { "font": "", "size": "" },
+    "heroSub": { "font": "", "size": "" },
+    "siteName": { "font": "", "size": "" },
+    "navLinks": { "font": "", "size": "" },
+    "yearLabel": { "font": "", "size": "" },
+    "locationHead": { "font": "", "size": "" },
+    "photoCaption": { "font": "", "size": "" },
+    "bodyText": { "font": "", "size": "" }
   },
   "heroBgUrl": "https://raw.githubusercontent.com/Nana77mii/studio-photos/main/photos/hero.jpg",
   "musicUrl": "https://raw.githubusercontent.com/Nana77mii/studio-photos/main/photos/bgm.mp3",
