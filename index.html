@@ -122,17 +122,40 @@ body.fonts-ready { opacity:1; transition:opacity 0.15s; }
 .fade-in { animation: fadeIn 0.5s cubic-bezier(0.2,0.8,0.2,1) forwards; }
 @keyframes fadeIn { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
 
-/* Hero print developing out of the fixer */
-.hero-img-in { animation: heroDevelop 2.6s cubic-bezier(0.2,0.8,0.2,1) both; }
+/* Hero print developing out of the fixer (tone only — motion lives on .hero-frame + JS parallax) */
+.hero-img-in { animation: heroDevelop 2.8s cubic-bezier(0.2,0.8,0.2,1) both; }
 @keyframes heroDevelop {
-  from { opacity:0; filter:brightness(0.25) contrast(1.6) blur(7px); }
-  to   { opacity:1; filter:brightness(0.7) contrast(1.06) blur(0); }
+  0%   { opacity:0; filter:brightness(0.16) contrast(1.7) blur(9px); }
+  55%  { opacity:1; }
+  100% { opacity:1; filter:brightness(0.7) contrast(1.06) blur(0); }
 }
-.hero-txt { opacity:0; transform:translateY(18px); animation: txtIn 1s cubic-bezier(0.2,0.8,0.2,1) forwards; }
-.hero-txt:nth-child(1) { animation-delay:.45s; }
-.hero-txt:nth-child(2) { animation-delay:.6s; }
-.hero-txt:nth-child(3) { animation-delay:.75s; }
-@keyframes txtIn { to { opacity:1; transform:translateY(0); } }
+/* Slow Ken-Burns drift so the cover breathes even before you scroll */
+.hero-frame { animation: heroKen 26s ease-in-out 0.3s infinite alternate both; will-change:transform; }
+@keyframes heroKen {
+  from { transform:scale(1.045) translate3d(0,0,0); }
+  to   { transform:scale(1.11)  translate3d(0,-1.6%,0); }
+}
+
+/* Hero copy: a sequenced, cinematic entrance (eyebrow → title lines → sub → cue/readout) */
+.hero-reveal { opacity:0; animation: heroRise 1s cubic-bezier(0.2,0.85,0.25,1) both; }
+@keyframes heroRise { from { opacity:0; transform:translateY(30px); } to { opacity:1; transform:translateY(0); } }
+.hero-d1 { animation-delay:.50s; }
+.hero-d3 { animation-delay:1.10s; }
+.hero-d4 { animation-delay:1.38s; }
+
+/* Big title: each line rises out from behind a mask (the Apple/DJI signature) */
+#hero-title { overflow:hidden; }
+#hero-title .hero-line { display:block; overflow:hidden; padding-bottom:0.04em; }
+#hero-title .hero-line-in { display:block; transform:translateY(120%); animation: lineRise 1.2s cubic-bezier(0.16,1,0.3,1) both; }
+#hero-title .hl1 { animation-delay:.66s; }
+#hero-title .hl2 { animation-delay:.80s; }
+@keyframes lineRise { from { transform:translateY(120%); } to { transform:translateY(0); } }
+
+@media (prefers-reduced-motion:reduce) {
+  .hero-img-in, .hero-frame, .hero-reveal, #hero-title .hero-line-in {
+    animation:none !important; opacity:1 !important; transform:none !important;
+  }
+}
 
 /* ── Gallery: contact-sheet frames (a print mounted on matboard) ── */
 .gallery-card {
@@ -223,25 +246,49 @@ body.fonts-ready { opacity:1; transition:opacity 0.15s; }
 
 /* ── Reveal: each roll "develops" like a print in the tray as you scroll between them ── */
 .reveal-year {
-  opacity:0; transform:translateY(14px);
-  transition:opacity .9s cubic-bezier(.2,.8,.2,1), transform .9s cubic-bezier(.2,.8,.2,1);
+  opacity:0; transform:translateY(20px);
+  transition:opacity 1s cubic-bezier(.2,.8,.2,1), transform 1s cubic-bezier(.2,.8,.2,1);
 }
 .reveal-year.visible { opacity:1; transform:none; }
 
-/* Each location = a roll; it develops in on its own as it enters the frame,
-   giving a clear transition between one set of photos and the next */
+/* Each location = a roll; the whole block develops in as it enters the frame,
+   giving a clear cinematic transition between one set of photos and the next */
 .reveal-roll {
-  opacity:0; filter:brightness(0.5) contrast(0.68); transform:translateY(36px) scale(0.985);
-  transition:opacity 1s cubic-bezier(.2,.8,.2,1), filter 1.4s cubic-bezier(.2,.8,.2,1), transform 1s cubic-bezier(.2,.8,.2,1);
+  opacity:0; filter:brightness(0.55) contrast(0.7); transform:translateY(46px) scale(0.984);
+  transition:opacity 1.15s cubic-bezier(.2,.8,.2,1), filter 1.6s cubic-bezier(.2,.8,.2,1), transform 1.15s cubic-bezier(.2,.8,.2,1);
   will-change:opacity, transform, filter;
 }
 .reveal-roll.visible { opacity:1; filter:none; transform:none; }
 
+/* Roll header wipes in: label + place lift, then the rule "draws" left→right like a film slate */
+.reveal-roll .roll-label,
+.reveal-roll .rh-place {
+  opacity:0; transform:translateY(18px);
+  transition:opacity .95s cubic-bezier(.2,.8,.2,1), transform .95s cubic-bezier(.2,.8,.2,1);
+}
+.reveal-roll .roll-label { transition-delay:.14s; }
+.reveal-roll .rh-place  { transition-delay:.24s; }
+.reveal-roll.visible .roll-label,
+.reveal-roll.visible .rh-place { opacity:1; transform:none; }
+.reveal-roll .roll-rule { transform:scaleX(0); transform-origin:left center; transition:transform 1.15s cubic-bezier(.16,1,.3,1) .34s; }
+.reveal-roll.visible .roll-rule { transform:scaleX(1); }
+
+/* Frames deal out one after another, like laying prints on the sheet */
+.reveal-roll .reveal-card {
+  opacity:0; transform:translateY(32px) scale(0.99);
+  transition:opacity .9s cubic-bezier(.2,.8,.2,1), transform .9s cubic-bezier(.2,.8,.2,1);
+  transition-delay:calc(var(--i, 0) * 0.055s + 0.30s);
+}
+.reveal-roll.visible .reveal-card { opacity:1; transform:none; }
+
 /* The year block is now just a scroll/music hook — the rolls carry the motion */
 .reveal-section {}
-.reveal-card { opacity:1; transform:none; }
 @media (prefers-reduced-motion:reduce) {
-  .reveal-year, .reveal-roll { opacity:1 !important; filter:none !important; transform:none !important; transition:none !important; }
+  .reveal-year, .reveal-roll,
+  .reveal-roll .roll-label, .reveal-roll .rh-place,
+  .reveal-roll .roll-rule, .reveal-roll .reveal-card {
+    opacity:1 !important; filter:none !important; transform:none !important; transition:none !important;
+  }
 }
 
 /* ── Admin ── */
@@ -390,7 +437,9 @@ body.fonts-ready { opacity:1; transition:opacity 0.15s; }
   font-family:var(--mono); font-size:10px; letter-spacing:.24em; text-transform:uppercase; color:var(--dust);
   display:flex; align-items:center; gap:8px; }
 @media (min-width:768px){ .hero-scrollcue { left:80px; } }
-.hero-scrollcue .cue-line { width:34px; height:1px; background:var(--rule); display:inline-block; }
+.hero-scrollcue .cue-line { width:34px; height:1px; background:var(--silver); display:inline-block; transform-origin:left center; animation: cueDraw 2.6s cubic-bezier(.4,0,.2,1) infinite; }
+@keyframes cueDraw { 0%{transform:scaleX(0.15);opacity:.25;} 45%{transform:scaleX(1);opacity:.95;} 70%{transform:scaleX(1);opacity:.95;} 100%{transform:scaleX(0.15);opacity:.25;} }
+@media (prefers-reduced-motion:reduce){ .hero-scrollcue .cue-line { animation:none; transform:none; opacity:.6; } }
 
 /* ── Roll header (a trip = a roll of film) ── */
 .roll-head { display:flex; align-items:flex-end; gap:16px; }
@@ -648,7 +697,7 @@ body.fonts-ready { opacity:1; transition:opacity 0.15s; }
     <div class="hero-vignette"></div>
 
     <!-- exposure readout, pinned to the right edge -->
-    <div class="exposure-readout" aria-hidden="true">
+    <div class="exposure-readout hero-reveal hero-d4" aria-hidden="true">
       <div class="er-track">
         <span>Exposure Sheet</span><span class="er-tick">✕</span>
         <span>Canon EOS 80D</span><span class="er-tick">✕</span>
@@ -657,14 +706,12 @@ body.fonts-ready { opacity:1; transition:opacity 0.15s; }
     </div>
 
     <div class="hero-inner">
-      <p class="roll-label hero-txt" style="margin-bottom:22px">Field Log № 01 &nbsp;·&nbsp; Beijing → American Southwest</p>
-      <h1 id="hero-title" class="hero-txt" style="font-size:clamp(3.1rem,11vw,9rem);margin:0 0 26px">
-        Nana77mii's<br/>Memory Cabin
-      </h1>
-      <p id="hero-sub" class="hero-txt" style="font-size:13px;letter-spacing:.05em;max-width:34rem;line-height:1.6">— a random collection of moments captured in time.</p>
+      <p class="roll-label hero-reveal hero-d1" style="margin-bottom:22px">Field Log № 01 &nbsp;·&nbsp; Beijing → American Southwest</p>
+      <h1 id="hero-title" style="font-size:clamp(3.1rem,11vw,9rem);margin:0 0 26px"><span class="hero-line"><span class="hero-line-in hl1">Nana77mii's</span></span><span class="hero-line"><span class="hero-line-in hl2">Memory Cabin</span></span></h1>
+      <p id="hero-sub" class="hero-reveal hero-d3" style="font-size:13px;letter-spacing:.05em;max-width:34rem;line-height:1.6">— a random collection of moments captured in time.</p>
     </div>
 
-    <div class="hero-scrollcue" aria-hidden="true">
+    <div class="hero-scrollcue hero-reveal hero-d4" aria-hidden="true">
       <span class="cue-line"></span> Scroll to develop
     </div>
   </section>
@@ -2186,7 +2233,18 @@ function applySettings(s) {
   if (foot) foot.textContent = s.siteName || DEFAULT_SETTINGS.siteName;
 
   const title = document.getElementById("hero-title");
-  if (title) title.innerHTML = `${s.heroLine1 || DEFAULT_SETTINGS.heroLine1}<br/>${s.heroLine2 || DEFAULT_SETTINGS.heroLine2}`;
+  if (title) {
+    const l1 = s.heroLine1 || DEFAULT_SETTINGS.heroLine1;
+    const l2 = s.heroLine2 || DEFAULT_SETTINGS.heroLine2;
+    // Keep the two-line masked structure; only rewrite (and re-trigger the rise) if the text actually changed
+    const cur1 = title.querySelector(".hl1")?.textContent;
+    const cur2 = title.querySelector(".hl2")?.textContent;
+    if (cur1 !== l1 || cur2 !== l2) {
+      title.innerHTML =
+        `<span class="hero-line"><span class="hero-line-in hl1">${l1}</span></span>` +
+        `<span class="hero-line"><span class="hero-line-in hl2">${l2}</span></span>`;
+    }
+  }
 
   const sub = document.getElementById("hero-sub");
   if (sub) sub.textContent = s.heroSub || DEFAULT_SETTINGS.heroSub;
@@ -2775,7 +2833,7 @@ function renderPhotoGrid(photos) {
       <div class="resize-h br" onmousedown="onResizeStart(event,'${p.id}')"></div>` : '';
     return `
       <div id="card-${p.id}" class="gallery-card cursor-pointer reveal-card ${editModeActive ? 'edit-active' : ''}"
-           style="--r:${r.toFixed(4)};${scaleStyle}"
+           style="--r:${r.toFixed(4)};--i:${idx == null ? 0 : idx};${scaleStyle}"
            onclick="${editModeActive ? '' : `showDetail('${p.id}')`}"
            ${editModeActive ? `draggable="true" ondragstart="onEditDragStart(event,'${p.id}')" ondragover="onEditDragOver(event)" ondragleave="onEditDragLeave(event)" ondrop="onEditDrop(event,'${p.id}')"` : ''}>
         <span class="frame-num">${frameNo}</span>
@@ -3220,6 +3278,42 @@ function observeReveal() {
 
   targets.forEach(el => revealObserver.observe(el));
 }
+
+/* ═══════════════════════════════════════════════════════════
+   HERO PARALLAX — the cover image drifts slower than the copy,
+   and the whole hero fades out as you scroll into the sheet.
+═══════════════════════════════════════════════════════════ */
+let heroMotionInit = false;
+function initHeroMotion() {
+  if (heroMotionInit) return;
+  const hero = document.querySelector('.hero-darkroom');
+  if (!hero) return;
+  heroMotionInit = true;
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion:reduce)').matches) return;
+  const bg    = document.getElementById('hero-bg');
+  const inner = hero.querySelector('.hero-inner');
+  const cue   = hero.querySelector('.hero-scrollcue');
+  let ticking = false;
+  const update = () => {
+    const y = window.scrollY || window.pageYOffset || 0;
+    const h = hero.offsetHeight || 1;
+    const p = Math.min(Math.max(y / h, 0), 1);
+    if (bg) bg.style.transform = 'translate3d(0,' + (y * 0.4).toFixed(1) + 'px,0)';
+    if (inner) {
+      inner.style.transform = 'translate3d(0,' + (y * -0.06).toFixed(1) + 'px,0)';
+      // leave opacity to the CSS entrance while at the very top; take over once scrolling
+      inner.style.opacity = y > 0 ? String(Math.max(0, 1 - p * 1.25)) : '';
+    }
+    if (cue) cue.style.opacity = y > 0 ? String(Math.max(0, 1 - p * 2.4)) : '';
+    ticking = false;
+  };
+  window.addEventListener('scroll', () => {
+    if (!ticking) { ticking = true; requestAnimationFrame(update); }
+  }, { passive: true });
+  update();
+}
+if (document.readyState !== 'loading') initHeroMotion();
+else document.addEventListener('DOMContentLoaded', initHeroMotion);
 
 /* ═══════════════════════════════════════════════════════════
    LIGHTBOX — fullscreen photo viewer with scroll-to-zoom
