@@ -11,33 +11,36 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<!-- Darkroom type system: an expressive high-contrast serif for prints + a technical mono for the field-log readouts -->
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet"/>
 <script id="tailwind-config">
 tailwind.config = {
   darkMode: "class",
   theme: {
     extend: {
       colors: {
-        "surface-container": "#201f1f",
-        "secondary": "#c7c6cb",
-        "on-primary": "#2f3131",
-        "background": "#141313",
-        "surface-container-highest": "#353434",
-        "outline": "#8e9192",
-        "primary": "#ffffff",
-        "on-surface-variant": "#c4c7c8",
-        "surface": "#141313",
-        "on-background": "#e5e2e1",
-        "surface-variant": "#353434",
-        "on-surface": "#e5e2e1",
-        "outline-variant": "#444748",
-        "secondary-container": "#46464b",
-        "surface-container-high": "#2a2a2a",
+        /* Darkroom palette — the prints are the only color on the page */
+        "surface-container": "#201E28",          /* matboard / mount */
+        "secondary": "#A8A5B2",
+        "on-primary": "#15141A",
+        "background": "#15141A",                  /* ink */
+        "surface-container-highest": "#35323F",   /* rule */
+        "outline": "#56535F",
+        "primary": "#CFCDD6",                      /* silver */
+        "on-surface-variant": "#7C7987",          /* dust — muted labels */
+        "surface": "#15141A",
+        "on-background": "#CFCDD6",
+        "surface-variant": "#35323F",
+        "on-surface": "#CFCDD6",
+        "outline-variant": "#35323F",
+        "secondary-container": "#201E28",
+        "surface-container-high": "#1B1A21",
       },
       borderRadius: {
-        DEFAULT: "0.125rem",
-        lg: "0.25rem",
-        xl: "0.5rem",
-        full: "0.75rem"
+        DEFAULT: "0",
+        lg: "0.0625rem",
+        xl: "0.125rem",
+        full: "0.25rem"
       },
       spacing: {
         "page-margin-desktop": "80px",
@@ -47,7 +50,9 @@ tailwind.config = {
         "section-gap": "160px"
       },
       fontFamily: {
-        sans: ["Geist", "sans-serif"]
+        sans: ["Instrument Serif", "Georgia", "serif"],
+        serif: ["Instrument Serif", "Georgia", "serif"],
+        mono: ["Space Mono", "ui-monospace", "SFMono-Regular", "monospace"]
       }
     }
   }
@@ -60,12 +65,54 @@ tailwind.config = {
   --gh-repo: "studio-photos";
   --gh-branch: "main";
   --admin-password: "studio2026";
+
+  /* ── Darkroom palette ── */
+  --ink:        #15141A;   /* page — cool near-black */
+  --ink-2:      #1B1A21;   /* raised sections */
+  --matboard:   #201E28;   /* mount / card back / panels */
+  --rule:       #35323F;   /* hairlines & borders */
+  --rule-soft:  #26242E;   /* faint hairlines */
+  --silver:     #CFCDD6;   /* primary text */
+  --silver-dim: #A8A5B2;   /* secondary text */
+  --dust:       #7C7987;   /* muted labels */
+  --dust-2:     #56535F;   /* faint labels */
+
+  --serif: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+  --mono:  'Space Mono', ui-monospace, 'SFMono-Regular', monospace;
 }
 
-body { background:#141313; color:#e5e2e1; -webkit-font-smoothing:antialiased; }
+html { background:var(--ink); }
+body {
+  background:var(--ink); color:var(--silver);
+  font-family:var(--serif); font-weight:400;
+  font-synthesis:none;                       /* Instrument Serif is single-weight — never fake-bold it */
+  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+}
+/* All technical chrome speaks in mono — nav, controls, labels, readouts */
+.mono, .nav-link, [data-nav], button, input, select, textarea,
+.btn-primary, .btn-ghost, .admin-input, .admin-select,
+.frame-num, .roll-label, .readout, .log-row, code, kbd { font-family:var(--mono); }
+
+/* Fine film grain over the whole darkroom */
+body::after {
+  content:""; position:fixed; inset:0; z-index:9998; pointer-events:none; opacity:0.05;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode:screen;
+}
+
 /* Prevent jarring FOUT: fade in after custom fonts load */
 body { opacity:0; }
 body.fonts-ready { opacity:1; transition:opacity 0.15s; }
+
+/* ── Darkroom type helpers ── */
+.ff-serif { font-family:var(--serif); font-weight:400; }
+.ff-mono  { font-family:var(--mono); }
+.roll-label {
+  font-family:var(--mono); text-transform:uppercase; letter-spacing:0.22em;
+  font-size:10.5px; color:var(--dust); font-weight:400;
+}
+.readout { font-family:var(--mono); letter-spacing:0.14em; color:var(--dust); }
+.hairline { height:1px; background:var(--rule); border:0; }
 
 /* ── Transitions ── */
 .view { display:none !important; }
@@ -75,40 +122,57 @@ body.fonts-ready { opacity:1; transition:opacity 0.15s; }
 .fade-in { animation: fadeIn 0.5s cubic-bezier(0.2,0.8,0.2,1) forwards; }
 @keyframes fadeIn { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
 
-.hero-img-in { animation: heroIn 2s cubic-bezier(0.2,0.8,0.2,1) both; }
-@keyframes heroIn { from { opacity:0; } to { opacity:0.8; } }
-
-.hero-txt { opacity:0; transform:translateY(20px); animation: txtIn 0.8s cubic-bezier(0.175,0.885,0.32,1.275) forwards; }
-.hero-txt:nth-child(1) { animation-delay:.5s; }
-.hero-txt:nth-child(2) { animation-delay:.7s; }
+/* Hero print developing out of the fixer */
+.hero-img-in { animation: heroDevelop 2.6s cubic-bezier(0.2,0.8,0.2,1) both; }
+@keyframes heroDevelop {
+  from { opacity:0; filter:brightness(0.25) contrast(1.6) blur(7px); }
+  to   { opacity:1; filter:brightness(0.7) contrast(1.06) blur(0); }
+}
+.hero-txt { opacity:0; transform:translateY(18px); animation: txtIn 1s cubic-bezier(0.2,0.8,0.2,1) forwards; }
+.hero-txt:nth-child(1) { animation-delay:.45s; }
+.hero-txt:nth-child(2) { animation-delay:.6s; }
+.hero-txt:nth-child(3) { animation-delay:.75s; }
 @keyframes txtIn { to { opacity:1; transform:translateY(0); } }
 
-/* ── Gallery ── */
-.gallery-card { overflow:hidden; position:relative; cursor:pointer; min-height:180px; background:rgba(255,255,255,0.03); }
-.gallery-img { transition:transform 0.6s cubic-bezier(0.175,0.885,0.32,1.275), opacity 0.3s; display:block; width:100%; height:auto; max-width:100%; aspect-ratio:var(--r,1.5); min-height:120px; background:#1a1a1a; }
-.gallery-card:hover .gallery-img { transform:scale(1.04); opacity:.85; }
-.gallery-overlay {
-  background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0) 100%);
-  opacity:0; transition:opacity 0.4s;
+/* ── Gallery: contact-sheet frames (a print mounted on matboard) ── */
+.gallery-card {
+  position:relative; cursor:pointer; background:var(--matboard);
+  border:1px solid var(--rule-soft); padding:10px 10px 0;
+  transition:transform .5s cubic-bezier(.2,.8,.2,1), box-shadow .5s cubic-bezier(.2,.8,.2,1), border-color .3s;
+  will-change:transform;
 }
-.gallery-card:hover .gallery-overlay { opacity:1; }
+.gallery-img {
+  display:block; width:100%; height:auto; max-width:100%;
+  aspect-ratio:var(--r,1.5); object-fit:cover; background:#0e0d12;
+  filter:saturate(0.96) contrast(1.02);
+  transition:filter .5s ease;
+}
+/* Hover = a print lifting off the sheet, not a zoom */
+.gallery-card:hover { transform:translateY(-6px); box-shadow:0 22px 44px -24px rgba(0,0,0,.9); border-color:var(--rule); }
+.gallery-card:hover .gallery-img { filter:saturate(1.06) contrast(1.04) brightness(1.05); }
 
-/* ── Photo Grid (masonry columns — irregular, natural heights) ── */
-.photo-grid {
-  column-count:3; column-gap:0.75rem; width:100%;
+/* Frame number, like the sprocket-edge index on a real contact sheet */
+.frame-num {
+  position:absolute; top:15px; left:15px; z-index:6;
+  font-family:var(--mono); font-size:10px; letter-spacing:.12em; color:var(--silver);
+  background:rgba(10,9,14,.5); backdrop-filter:blur(2px);
+  padding:2px 6px; border:1px solid rgba(207,205,214,.18);
 }
-.photo-grid .gallery-card {
-  break-inside:avoid; margin-bottom:0.75rem;
-  height:auto; width:100%;
+/* Always-on caption strip beneath the print */
+.frame-caption {
+  display:flex; align-items:baseline; justify-content:space-between; gap:10px;
+  padding:9px 2px 12px; border-top:1px solid var(--rule-soft); margin-top:10px;
 }
-.photo-grid .gallery-card .gallery-img {
-  width:100%; height:auto; object-fit:cover; display:block;
-}
+.frame-caption .fc-place { font-family:var(--serif); font-size:15px; line-height:1.05; color:var(--silver); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.frame-caption .fc-meta  { font-family:var(--mono); font-size:9.5px; letter-spacing:.1em; color:var(--dust); white-space:nowrap; flex-shrink:0; text-transform:uppercase; }
+
+/* ── Contact sheet grid ── */
+.photo-grid { column-count:3; column-gap:1.25rem; width:100%; }
+.photo-grid .gallery-card { break-inside:avoid; margin-bottom:1.25rem; width:100%; }
 @media (max-width:1024px) { .photo-grid { column-count:2; } }
 @media (max-width:639px)  { .photo-grid { column-count:1; } }
 .photo-grid-single { width:100%; column-count:1; }
 .photo-grid-single .gallery-card { width:100%; }
-.photo-grid-single .gallery-img { width:100%; height:auto; }
 
 /* ── Edit Mode ── */
 .edit-card-ctrl { position:absolute; inset-x:0; bottom:0; background:rgba(0,0,0,0.82); padding:6px 8px; display:flex; align-items:center; justify-content:space-between; gap:6px; z-index:20; }
@@ -127,11 +191,11 @@ body.fonts-ready { opacity:1; transition:opacity 0.15s; }
 .resize-h.br { bottom:-7px; right:-7px; cursor:nwse-resize; }
 .gallery-card.drag-over { outline:2px solid rgba(255,255,255,0.7); }
 
-.ghost-border { border:1px solid rgba(255,255,255,0.08); }
+.ghost-border { border:1px solid var(--rule); }
 
 /* ── Nav underline ── */
 .nav-link { position:relative; }
-.nav-link::after { content:''; position:absolute; width:0; height:1px; bottom:-4px; left:0; background:#fff; transition:width 0.3s; }
+.nav-link::after { content:''; position:absolute; width:0; height:1px; bottom:-4px; left:0; background:var(--silver); transition:width 0.3s; }
 .nav-link:hover::after { width:100%; }
 
 /* ── Accordion ── */
@@ -157,50 +221,40 @@ body.fonts-ready { opacity:1; transition:opacity 0.15s; }
 .typo-row:hover { background:rgba(255,255,255,0.025); border-radius:4px; }
 .typo-row.active { background:rgba(255,255,255,0.045); border-radius:4px; }
 
-/* ── Reveal Animations (Apple-style scroll-triggered) ── */
+/* ── Reveal: each roll "develops" like a print in the tray (one moment, not per-card) ── */
 .reveal-section {
-  opacity: 0;
-  transform: translateY(48px);
-  transition: opacity 0.9s cubic-bezier(0.2,0.8,0.2,1), transform 0.9s cubic-bezier(0.2,0.8,0.2,1);
+  opacity:0; filter:brightness(0.5) contrast(0.68); transform:translateY(20px);
+  transition:opacity 1.1s cubic-bezier(.2,.8,.2,1), filter 1.5s cubic-bezier(.2,.8,.2,1), transform 1.1s cubic-bezier(.2,.8,.2,1);
 }
-.reveal-section.visible {
-  opacity: 1;
-  transform: translateY(0);
-}
+.reveal-section.visible { opacity:1; filter:none; transform:none; }
 .reveal-year {
-  opacity: 0;
-  transform: scale(0.92);
-  transition: opacity 1s cubic-bezier(0.2,0.8,0.2,1), transform 1s cubic-bezier(0.2,0.8,0.2,1);
+  opacity:0; transform:translateY(14px);
+  transition:opacity .9s cubic-bezier(.2,.8,.2,1), transform .9s cubic-bezier(.2,.8,.2,1);
 }
-.reveal-year.visible {
-  opacity: 1;
-  transform: scale(1);
-}
-.reveal-card {
-  opacity: 0;
-  transform: translateY(32px);
-  transition: opacity 0.65s cubic-bezier(0.2,0.8,0.2,1), transform 0.65s cubic-bezier(0.2,0.8,0.2,1);
-}
-.reveal-card.visible {
-  opacity: 1;
-  transform: translateY(0);
+.reveal-year.visible { opacity:1; transform:none; }
+/* No per-card fade-ups — the whole sheet arrives together */
+.reveal-card { opacity:1; transform:none; }
+@media (prefers-reduced-motion:reduce) {
+  .reveal-section, .reveal-year { opacity:1 !important; filter:none !important; transform:none !important; transition:none !important; }
 }
 
 /* ── Admin ── */
 .drop-zone { border:2px dashed rgba(255,255,255,0.15); transition:border-color 0.3s, background 0.3s; }
 .drop-zone.drag-over { border-color:rgba(255,255,255,0.5); background:rgba(255,255,255,0.04); }
-.admin-input { background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12); color:#e5e2e1; border-radius:4px; padding:10px 14px; width:100%; transition:border-color 0.2s; }
-.admin-input:focus { outline:none; border-color:rgba(255,255,255,0.4); }
-.admin-select { background:#1c1c1c; border:1px solid rgba(255,255,255,0.12); color:#e5e2e1; border-radius:4px; padding:10px 14px; width:100%; }
+.admin-input, .admin-select { color-scheme:dark; background:var(--matboard) !important; border:1px solid var(--rule) !important; color:var(--silver) !important; border-radius:2px; padding:10px 14px; width:100%; transition:border-color 0.2s; }
+.admin-input:focus, .admin-select:focus { outline:none; border-color:var(--dust) !important; }
+.admin-input::placeholder { color:var(--dust-2); }
+.admin-input:-webkit-autofill, .admin-input:-webkit-autofill:hover, .admin-input:-webkit-autofill:focus {
+  -webkit-text-fill-color:var(--silver); -webkit-box-shadow:0 0 0 1000px var(--matboard) inset; caret-color:var(--silver); }
 .tag-chip { background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.12); border-radius:3px; padding:2px 10px; font-size:11px; display:inline-flex; align-items:center; gap:6px; }
 .photo-thumb { aspect-ratio:1; object-fit:cover; border-radius:2px; }
 .shimmer { background:linear-gradient(90deg,#1a1a1a 25%,#222 50%,#1a1a1a 75%); background-size:200% 100%; animation:shimmer 1.5s infinite; }
 @keyframes shimmer { 0%{background-position:200% 0;} 100%{background-position:-200% 0;} }
-.btn-primary { background:#fff; color:#141313; padding:10px 24px; border-radius:2px; font-size:12px; letter-spacing:.08em; font-weight:600; transition:opacity .2s, transform .15s; cursor:pointer; }
-.btn-primary:hover { opacity:.85; }
-.btn-primary:active { transform:scale(.97); }
-.btn-ghost { border:1px solid rgba(255,255,255,.2); color:#e5e2e1; padding:8px 20px; border-radius:2px; font-size:12px; letter-spacing:.08em; font-weight:600; transition:border-color .2s, background .2s; cursor:pointer; }
-.btn-ghost:hover { border-color:rgba(255,255,255,.5); background:rgba(255,255,255,.05); }
+.btn-primary { background:var(--silver); color:var(--ink); padding:11px 26px; border-radius:0; font-family:var(--mono); font-size:11px; letter-spacing:.16em; text-transform:uppercase; font-weight:400; transition:background .2s, transform .15s; cursor:pointer; }
+.btn-primary:hover { background:#fff; }
+.btn-primary:active { transform:scale(.98); }
+.btn-ghost { border:1px solid var(--rule); color:var(--silver); padding:9px 22px; border-radius:0; font-family:var(--mono); font-size:11px; letter-spacing:.16em; text-transform:uppercase; font-weight:400; background:transparent; transition:border-color .2s, background .2s; cursor:pointer; }
+.btn-ghost:hover { border-color:var(--silver); background:rgba(207,205,214,.06); }
 .status-bar { position:fixed; bottom:24px; right:24px; background:#1e1e1e; border:1px solid rgba(255,255,255,.12); border-radius:6px; padding:12px 20px; font-size:13px; z-index:9999; transition:opacity .4s, transform .4s; transform:translateY(8px); opacity:0; pointer-events:none; }
 .status-bar.show { opacity:1; transform:translateY(0); }
 .status-bar.success { border-color:rgba(120,220,120,.4); color:#7fdc7f; }
@@ -292,6 +346,80 @@ body.fonts-ready { opacity:1; transition:opacity 0.15s; }
   -webkit-appearance:none; width:12px; height:12px; border-radius:50%;
   background:#fff; cursor:pointer;
 }
+
+/* ═══════════════ DARKROOM COMPONENTS ═══════════════ */
+
+/* ── Nav: field-log header bar ── */
+#main-nav { background:rgba(21,20,26,0.82); border-bottom:1px solid var(--rule); }
+#nav-logo { font-family:var(--serif) !important; font-weight:400; letter-spacing:0; font-size:19px; color:var(--silver); text-transform:none; }
+.nav-link, [data-nav] { font-family:var(--mono); font-size:11px; letter-spacing:.14em; }
+
+/* ── Hero: the field-log cover ── */
+.hero-darkroom { position:relative; width:100%; min-height:100vh; overflow:hidden; background:var(--ink); }
+.hero-frame { position:absolute; inset:0; }
+.hero-frame img { width:100%; height:100%; object-fit:cover; }
+.hero-vignette { position:absolute; inset:0; background:
+  linear-gradient(90deg, rgba(21,20,26,.94) 0%, rgba(21,20,26,.62) 38%, rgba(21,20,26,.25) 70%, rgba(21,20,26,.55) 100%),
+  linear-gradient(0deg, rgba(21,20,26,.92) 0%, rgba(21,20,26,0) 45%); }
+.hero-inner { position:relative; z-index:2; min-height:100vh; display:flex; flex-direction:column; justify-content:flex-end;
+  padding:0 24px 12vh; max-width:1400px; margin:0 auto; }
+@media (min-width:768px){ .hero-inner { padding:0 80px 14vh; } }
+#hero-title { font-family:var(--serif) !important; font-weight:400 !important; color:var(--silver);
+  line-height:0.92; letter-spacing:-0.01em; margin:0; }
+#hero-sub { font-family:var(--mono) !important; color:var(--silver-dim); }
+
+/* exposure readout: technical strip pinned to the right edge, rotated */
+.exposure-readout {
+  position:absolute; top:0; right:0; height:100%; z-index:3;
+  display:none; align-items:center; padding-right:26px;
+}
+@media (min-width:768px){ .exposure-readout { display:flex; } }
+.exposure-readout .er-track {
+  writing-mode:vertical-rl; transform:rotate(180deg);
+  font-family:var(--mono); font-size:10.5px; letter-spacing:.34em; text-transform:uppercase;
+  color:var(--dust); display:flex; align-items:center; gap:20px;
+}
+.exposure-readout .er-tick { color:var(--dust-2); }
+.hero-scrollcue { position:absolute; left:24px; bottom:26px; z-index:3;
+  font-family:var(--mono); font-size:10px; letter-spacing:.24em; text-transform:uppercase; color:var(--dust);
+  display:flex; align-items:center; gap:8px; }
+@media (min-width:768px){ .hero-scrollcue { left:80px; } }
+.hero-scrollcue .cue-line { width:34px; height:1px; background:var(--rule); display:inline-block; }
+
+/* ── Roll header (a trip = a roll of film) ── */
+.roll-head { display:flex; align-items:flex-end; gap:16px; }
+.roll-head .rh-place { font-family:var(--serif); font-weight:400; color:var(--silver); line-height:0.95; letter-spacing:-0.01em; }
+.roll-rule { flex:1; height:1px; background:var(--rule); margin-bottom:14px; }
+.acc-icon { color:var(--dust); }
+
+/* ── Section eyebrow / year mast ── */
+.year-mast { font-family:var(--serif) !important; font-weight:400 !important; color:var(--silver); line-height:0.9; letter-spacing:-0.02em; }
+.timeline-year { font-family:var(--serif); }
+.timeline-location { font-family:var(--serif) !important; font-weight:400 !important; }
+
+/* ── Detail: print on matboard + developer's log ── */
+.print-mount { background:var(--matboard); border:1px solid var(--rule); padding:20px; }
+@media (min-width:768px){ .print-mount { padding:30px; } }
+.print-mount img { display:block; width:100%; }
+.detail-place { font-family:var(--serif) !important; font-weight:400 !important; color:var(--silver); line-height:0.98; letter-spacing:-0.01em; }
+.log-panel { border-top:1px solid var(--rule); }
+.log-row { display:flex; align-items:baseline; gap:10px; font-family:var(--mono); font-size:12px; padding:11px 0; border-bottom:1px solid var(--rule-soft); }
+.log-row .lr-key { color:var(--dust); text-transform:uppercase; letter-spacing:.12em; font-size:10px; white-space:nowrap; }
+.log-row .lr-dots { flex:1; border-bottom:1px dotted var(--dust-2); transform:translateY(-3px); min-width:16px; }
+.log-row .lr-val { color:var(--silver); text-align:right; max-width:62%; }
+.eyebrow { font-family:var(--mono); text-transform:uppercase; letter-spacing:.22em; font-size:10.5px; color:var(--dust); }
+
+/* Chronicles ledger */
+.ledger-row { display:flex; align-items:baseline; gap:16px; padding:15px 0; border-bottom:1px solid var(--rule-soft); transition:border-color .3s, padding-left .3s; }
+.ledger-row:first-child { border-top:1px solid var(--rule); }
+.ledger-row:hover { border-color:var(--rule); padding-left:8px; }
+.ledger-row .lg-no { font-size:11px; color:var(--dust); min-width:2.4em; }
+.ledger-row .lg-place { font-family:var(--serif); font-weight:400; color:var(--silver); font-size:clamp(1.1rem,3.4vw,1.7rem); line-height:1; transition:opacity .2s; }
+.ledger-row:hover .lg-place { opacity:.68; }
+.ledger-row .lg-dots { flex:1; border-bottom:1px dotted var(--dust-2); transform:translateY(-4px); min-width:20px; }
+.ledger-row .lg-meta { font-size:10px; color:var(--dust); }
+.ledger-row .lg-date { font-size:10px; color:var(--dust); min-width:9em; text-align:right; }
+@media (max-width:520px){ .ledger-row .lg-meta { display:none; } .ledger-row .lg-date { min-width:0; } }
 </style>
 </head>
 <body class="min-h-screen flex flex-col overflow-x-hidden">
@@ -473,31 +601,31 @@ body.fonts-ready { opacity:1; transition:opacity 0.15s; }
 </div>
 
 <!-- ═══════════════════════════ NAV ═══════════════════════════ -->
-<nav id="main-nav" class="fixed top-0 w-full z-50 bg-[#141313]/80 backdrop-blur-xl border-b border-white/10 flex justify-between items-center h-16 md:h-20 px-5 md:px-20">
-  <a onclick="showView('home')" id="nav-logo" class="text-white font-bold tracking-tighter text-sm cursor-pointer select-none">ECHOES' IN PIXELS</a>
-  <div id="nav-desktop" class="hidden md:flex items-center gap-6 text-xs tracking-widest font-semibold uppercase">
-    <a onclick="showView('home')" data-nav="home" class="nav-link text-white border-b border-white pb-0.5 cursor-pointer">Sanctuary</a>
-    <a onclick="showView('chronicles')" data-nav="chronicles" class="nav-link text-on-surface-variant hover:text-white transition-colors cursor-pointer">Chronicles</a>
-    <a class="nav-link text-on-surface-variant hover:text-white transition-colors cursor-pointer">About</a>
-    <a onclick="goAdmin()" data-nav="admin-login" class="nav-link text-on-surface-variant hover:text-white transition-colors cursor-pointer">Admin</a>
+<nav id="main-nav" class="fixed top-0 w-full z-50 backdrop-blur-xl flex justify-between items-center h-16 md:h-20 px-5 md:px-20">
+  <a onclick="showView('home')" id="nav-logo" class="cursor-pointer select-none">ECHOES' IN PIXELS</a>
+  <div id="nav-desktop" class="hidden md:flex items-center gap-8">
+    <a onclick="showView('home')" data-nav="home" class="nav-link text-on-surface pb-0.5 cursor-pointer">Contact Sheet</a>
+    <a onclick="showView('chronicles')" data-nav="chronicles" class="nav-link text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer">Field Notes</a>
+    <a class="nav-link text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer">About</a>
+    <a onclick="goAdmin()" data-nav="admin-login" class="nav-link text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer">Darkroom</a>
   </div>
-  <div class="flex items-center gap-3">
-    <button onclick="showView('home')" class="btn-primary text-xs hidden md:block">Inquire</button>
-    <button onclick="toggleMobileMenu()" id="hamburger-btn" class="md:hidden text-white p-1 -mr-1">
+  <div class="flex items-center gap-4">
+    <span class="hidden md:inline readout" style="font-size:10px;letter-spacing:.2em">CANON&nbsp;EOS&nbsp;80D</span>
+    <button onclick="toggleMobileMenu()" id="hamburger-btn" class="md:hidden text-on-surface p-1 -mr-1">
       <span id="hamburger-icon" class="material-symbols-outlined" style="font-size:22px">menu</span>
     </button>
   </div>
 </nav>
 
 <!-- Mobile Menu Overlay -->
-<div id="mobile-menu" class="fixed inset-0 z-40 bg-[#141313] flex-col items-center justify-center hidden md:hidden">
-  <div class="flex flex-col items-center gap-10 text-base tracking-widest font-semibold uppercase mb-12">
-    <a onclick="showView('home');toggleMobileMenu()" data-nav="home" data-nav-mobile class="text-white cursor-pointer">Sanctuary</a>
-    <a onclick="showView('chronicles');toggleMobileMenu()" data-nav="chronicles" data-nav-mobile class="text-on-surface-variant cursor-pointer">Chronicles</a>
+<div id="mobile-menu" class="fixed inset-0 z-40 bg-background flex-col items-center justify-center hidden md:hidden">
+  <div class="flex flex-col items-center gap-8 mb-12" style="font-family:var(--serif);font-size:2rem;line-height:1">
+    <a onclick="showView('home');toggleMobileMenu()" data-nav="home" data-nav-mobile class="text-on-surface cursor-pointer">Contact Sheet</a>
+    <a onclick="showView('chronicles');toggleMobileMenu()" data-nav="chronicles" data-nav-mobile class="text-on-surface-variant cursor-pointer">Field Notes</a>
     <a class="text-on-surface-variant cursor-pointer">About</a>
-    <a onclick="goAdmin();toggleMobileMenu()" data-nav="admin-login" data-nav-mobile class="text-on-surface-variant cursor-pointer">Admin</a>
+    <a onclick="goAdmin();toggleMobileMenu()" data-nav="admin-login" data-nav-mobile class="text-on-surface-variant cursor-pointer">Darkroom</a>
   </div>
-  <button onclick="showView('home');toggleMobileMenu()" class="btn-primary text-xs">Inquire</button>
+  <span class="readout" style="font-size:10px;letter-spacing:.24em">FIELD LOG · CANON EOS 80D</span>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
@@ -505,26 +633,45 @@ body.fonts-ready { opacity:1; transition:opacity 0.15s; }
 ═══════════════════════════════════════════════════════════ -->
 <div id="view-home" class="view active pt-0">
 
-  <!-- Hero -->
-  <section class="relative w-full h-screen flex items-center justify-center overflow-hidden">
-    <div class="absolute inset-0" style="background:radial-gradient(ellipse 120% 100% at 50% 0%, #2a2826 0%, #1a1918 45%, #141313 100%)">
-      <img id="hero-bg" alt="Hero" class="w-full h-full object-cover hero-img-in" style="display:none"
+  <!-- Hero: the field-log cover -->
+  <section class="hero-darkroom">
+    <div class="hero-frame">
+      <img id="hero-bg" alt="Hero" class="hero-img-in" style="display:none"
            onload="this.style.display=''" onerror="this.style.display='none'"/>
-      <div class="absolute inset-0 bg-gradient-to-b from-[#141313]/30 via-transparent to-[#141313]/90"></div>
     </div>
-    <div class="relative z-10 text-center px-6 md:px-20">
-      <h1 id="hero-title" class="text-5xl md:text-9xl font-bold tracking-[-0.04em] text-white mb-6 leading-none hero-txt" style="text-shadow:0 4px 24px rgba(0,0,0,0.5)">
-        ECHOES'<br/>IN PIXELS
+    <div class="hero-vignette"></div>
+
+    <!-- exposure readout, pinned to the right edge -->
+    <div class="exposure-readout" aria-hidden="true">
+      <div class="er-track">
+        <span>Exposure Sheet</span><span class="er-tick">✕</span>
+        <span>Canon EOS 80D</span><span class="er-tick">✕</span>
+        <span>2025 — 2026</span>
+      </div>
+    </div>
+
+    <div class="hero-inner">
+      <p class="roll-label hero-txt" style="margin-bottom:22px">Field Log № 01 &nbsp;·&nbsp; Beijing → American Southwest</p>
+      <h1 id="hero-title" class="hero-txt" style="font-size:clamp(3.1rem,11vw,9rem);margin:0 0 26px">
+        Nana77mii's<br/>Memory Cabin
       </h1>
-      <p id="hero-sub" class="text-base text-on-surface-variant max-w-xl mx-auto hero-txt">by Nana7mii — a collection of moments captured in time.</p>
+      <p id="hero-sub" class="hero-txt" style="font-size:13px;letter-spacing:.05em;max-width:34rem;line-height:1.6">— a random collection of moments captured in time.</p>
+    </div>
+
+    <div class="hero-scrollcue" aria-hidden="true">
+      <span class="cue-line"></span> Scroll to develop
     </div>
   </section>
 
-  <!-- Timeline -->
-  <section id="timeline-section" class="py-16 md:py-40 bg-[#141313]">
-    <div id="timeline-container" class="px-6 md:px-20 overflow-x-hidden">
-      <div class="text-center text-on-surface-variant py-20 text-sm tracking-widest uppercase" id="timeline-loading">
-        Loading portfolio…
+  <!-- Contact sheet -->
+  <section id="timeline-section" class="py-16 md:py-28 bg-background">
+    <div class="px-6 md:px-20 mb-12 md:mb-16 max-w-[1400px] mx-auto">
+      <p class="eyebrow mb-4">The Contact Sheet</p>
+      <h2 class="year-mast" style="font-size:clamp(1.9rem,5vw,3.2rem);max-width:20ch">Every roll, in the order it was shot.</h2>
+    </div>
+    <div id="timeline-container" class="px-6 md:px-20 overflow-x-hidden max-w-[1400px] mx-auto">
+      <div class="readout py-20 text-left" id="timeline-loading" style="font-size:11px;letter-spacing:.2em;text-transform:uppercase">
+        Developing contact sheet…
       </div>
     </div>
   </section>
@@ -534,11 +681,11 @@ body.fonts-ready { opacity:1; transition:opacity 0.15s; }
      VIEW 2: CHRONICLES
 ═══════════════════════════════════════════════════════════ -->
 <div id="view-chronicles" class="view pt-20 min-h-screen">
-  <div class="max-w-2xl mx-auto px-6 md:px-20 py-20">
-    <p class="text-xs tracking-widest uppercase text-on-surface-variant mb-3">Chronicles</p>
-    <h2 class="text-5xl font-bold tracking-tight text-white mb-16">A Record<br/>of Places</h2>
+  <div class="max-w-3xl mx-auto px-6 md:px-20 py-20 md:py-28">
+    <p class="eyebrow mb-4">Field Notes</p>
+    <h2 class="year-mast mb-16" style="font-size:clamp(2.6rem,7vw,4.5rem)">A ledger<br/>of places.</h2>
     <div id="chronicles-tree">
-      <p class="text-on-surface-variant text-sm tracking-widest uppercase">Loading…</p>
+      <p class="readout" style="font-size:11px;letter-spacing:.2em;text-transform:uppercase">Reading field notes…</p>
     </div>
   </div>
 </div>
@@ -548,9 +695,9 @@ body.fonts-ready { opacity:1; transition:opacity 0.15s; }
 ═══════════════════════════════════════════════════════════ -->
 <div id="view-detail" class="view pt-20 min-h-screen">
   <div class="max-w-6xl mx-auto px-6 md:px-20 py-12">
-    <button onclick="goBack()" class="flex items-center gap-2 text-on-surface-variant hover:text-white transition-colors text-xs tracking-widest uppercase mb-10 group">
+    <button onclick="goBack()" class="flex items-center gap-2 text-on-surface-variant hover:text-on-surface transition-colors mb-10 group" style="font-size:11px;letter-spacing:.16em;text-transform:uppercase">
       <span class="material-symbols-outlined text-base group-hover:-translate-x-1 transition-transform">arrow_back</span>
-      Back to Sanctuary
+      Back to the sheet
     </button>
     <div id="detail-content" class="fade-in">
       <!-- populated by JS -->
@@ -865,13 +1012,13 @@ body.fonts-ready { opacity:1; transition:opacity 0.15s; }
 </div>
 
 <!-- Footer -->
-<footer id="main-footer" class="bg-[#141313] w-full py-10 border-t border-white/10 flex flex-col md:flex-row justify-between items-center px-6 md:px-20 gap-4 mt-auto">
-  <a onclick="showView('home')" id="footer-logo" class="text-white text-sm cursor-pointer">ECHOES' IN PIXELS</a>
-  <div class="flex gap-6 text-xs tracking-widest uppercase text-on-surface-variant">
-    <a class="hover:text-white transition-colors cursor-pointer">Instagram</a>
-    <a class="hover:text-white transition-colors cursor-pointer">Privacy</a>
+<footer id="main-footer" class="bg-background w-full py-10 border-t flex flex-col md:flex-row justify-between items-center px-6 md:px-20 gap-4 mt-auto" style="border-color:var(--rule)">
+  <a onclick="showView('home')" id="footer-logo" class="cursor-pointer" style="font-family:var(--serif);font-size:1.2rem;color:var(--silver)">ECHOES' IN PIXELS</a>
+  <div class="flex gap-6 readout" style="font-size:10px;letter-spacing:.18em">
+    <a class="hover:text-on-surface transition-colors cursor-pointer">Instagram</a>
+    <a class="hover:text-on-surface transition-colors cursor-pointer">Privacy</a>
   </div>
-  <p class="text-xs text-on-surface-variant">© 2026 NANA7MII'S ECHOES' IN PIXELS. ALL RIGHTS RESERVED.</p>
+  <p class="readout" style="font-size:10px;letter-spacing:.14em">© 2026 · Shot on Canon EOS 80D · Beijing / Southwest</p>
 </footer>
 
 <script>
@@ -894,6 +1041,8 @@ let bulkSelected = new Set(); // Set of selected photo IDs
 
 const FONT_OPTIONS = [
   { value: "",                    label: "Default" },
+  { value: "Instrument Serif",    label: "Instrument Serif" },
+  { value: "Space Mono",          label: "Space Mono" },
   { value: "Inter",               label: "Inter" },
   { value: "Playfair Display",    label: "Playfair Display" },
   { value: "Cormorant Garamond",  label: "Cormorant Garamond" },
@@ -2537,28 +2686,30 @@ async function loadChronicles() {
   const years = Object.keys(byYear).sort((a, b) => b - a);
 
   container.innerHTML = years.map((year, yi) => {
-    const locations = Object.entries(byYear[year]);
+    const locations = Object.entries(byYear[year])
+      .map(([loc, ph]) => { ph.sort((a, b) => b.date.localeCompare(a.date)); return [loc, ph]; })
+      .sort(([, a], [, b]) => b[0].date.localeCompare(a[0].date));
     return `
-      <div class="mb-16 fade-in" style="animation-delay:${yi * 0.08}s">
-        <div class="text-8xl font-bold tracking-tighter leading-none mb-8 select-none" style="color:rgba(255,255,255,0.06)">${year}</div>
-        <div class="relative pl-10 border-l border-white/10">
+      <div class="mb-16 fade-in" style="animation-delay:${yi * 0.06}s">
+        <div class="flex items-baseline gap-4 mb-5">
+          <span class="year-mast" style="font-size:clamp(2.4rem,8vw,4rem)">${year}</span>
+          <span class="readout" style="font-size:10px;letter-spacing:.24em">${locations.length} ${locations.length > 1 ? "ROLLS" : "ROLL"}</span>
+        </div>
+        <div>
           ${locations.map(([loc, lPhotos], li) => {
             const accId = "acc-" + year + "-" + loc.replace(/[^a-z0-9]/gi, "");
-            lPhotos.sort((a, b) => b.date.localeCompare(a.date));
             const newestD = lPhotos[0].date;
             const oldestD = lPhotos[lPhotos.length - 1].date;
             const dateLabel = newestD === oldestD ? newestD : `${oldestD} – ${newestD}`;
             const count = lPhotos.length;
+            const rollNo = String(li + 1).padStart(2, "0");
             return `
-              <div class="relative mb-6 last:mb-0 group cursor-pointer" onclick="goToSanctuary('${accId}')">
-                <div class="absolute -left-[2.6rem] top-3 w-2.5 h-2.5 rounded-full border border-white/20 bg-[#141313] group-hover:border-white group-hover:bg-white transition-all duration-300"></div>
-                <div class="py-3 border-b border-white/5 group-hover:border-white/15 transition-colors">
-                  <span class="text-white font-semibold tracking-tight group-hover:opacity-70 transition-opacity">${loc}</span>
-                  <div class="flex items-center justify-between mt-1.5">
-                    <span class="text-xs text-on-surface-variant/50">${count} ${count > 1 ? "frames" : "frame"}</span>
-                    <span class="text-xs text-on-surface-variant/40 tracking-widest tabular-nums">${dateLabel}</span>
-                  </div>
-                </div>
+              <div class="ledger-row group cursor-pointer" onclick="goToSanctuary('${accId}')">
+                <span class="lg-no readout">${rollNo}</span>
+                <span class="lg-place">${loc}</span>
+                <span class="lg-dots"></span>
+                <span class="lg-meta readout">${count} ${count > 1 ? "FR" : "FR"}</span>
+                <span class="lg-date readout tabular-nums">${dateLabel}</span>
               </div>`;
           }).join("")}
         </div>
@@ -2603,7 +2754,7 @@ function renderPhotoGrid(photos) {
 
   const card = (p, idx) => {
     const r = ratioOf(p);
-    const delay = (idx * 0.06).toFixed(2); // staggered reveal
+    const frameNo = String((idx == null ? 0 : idx) + 1).padStart(2, "0"); // contact-sheet frame index
     const savedScale = (editModeActive ? editLayouts : layouts)[p.id]?.scale || 1;
     const scaleStyle = savedScale !== 1 ? `transform:scale(${savedScale});` : '';
     const editCtrl = editModeActive ? `
@@ -2617,16 +2768,15 @@ function renderPhotoGrid(photos) {
       <div class="resize-h bl" onmousedown="onResizeStart(event,'${p.id}')"></div>
       <div class="resize-h br" onmousedown="onResizeStart(event,'${p.id}')"></div>` : '';
     return `
-      <div id="card-${p.id}" class="gallery-card ghost-border cursor-pointer reveal-card ${editModeActive ? 'edit-active' : ''}"
-           style="--r:${r.toFixed(4)};transition-delay:${delay}s;${scaleStyle}"
+      <div id="card-${p.id}" class="gallery-card cursor-pointer reveal-card ${editModeActive ? 'edit-active' : ''}"
+           style="--r:${r.toFixed(4)};${scaleStyle}"
            onclick="${editModeActive ? '' : `showDetail('${p.id}')`}"
            ${editModeActive ? `draggable="true" ondragstart="onEditDragStart(event,'${p.id}')" ondragover="onEditDragOver(event)" ondragleave="onEditDragLeave(event)" ondrop="onEditDrop(event,'${p.id}')"` : ''}>
+        <span class="frame-num">${frameNo}</span>
         <img src="${p.url}" alt="${p.location}" class="gallery-img" loading="lazy"/>
-        <div class="gallery-overlay absolute inset-0 flex flex-col justify-end p-5">
-          <div class="photo-caption text-xs tracking-widest text-on-surface-variant flex justify-between items-end">
-            <div><span class="block text-white mb-1">${p.date} / ${p.category}</span><span>${p.location}</span></div>
-            <div class="text-right opacity-80"><span class="block">${p.camera||""}</span><span>${p.lens||""}</span></div>
-          </div>
+        <div class="frame-caption">
+          <span class="fc-place">${p.location}</span>
+          <span class="fc-meta photo-caption">${p.category || ""}${p.date ? " · " + p.date : ""}</span>
         </div>
         ${editCtrl}
       </div>`;
@@ -2811,40 +2961,43 @@ function rerenderTimeline() {
     byYear[p.year][p.location].push(p);
   });
   const years = Object.keys(byYear).sort((a, b) => b - a);
-  container.innerHTML = years.map((year, yi) => `
-    <div class="reveal-section mb-40">
-      <h2 class="reveal-year text-5xl md:text-9xl font-bold text-white tracking-tighter leading-none mb-6 md:mb-12">${year}</h2>
-      ${Object.entries(byYear[year])
-        .map(([loc, lPhotos]) => {
-          lPhotos.sort((a, b) => b.date.localeCompare(a.date)); // sort within group first
-          return [loc, lPhotos];
-        })
-        .sort(([, a], [, b]) => b[0].date.localeCompare(a[0].date)) // then sort groups by newest date
-        .map(([loc, lPhotos]) => {
+  container.innerHTML = years.map((year, yi) => {
+    const entries = Object.entries(byYear[year])
+      .map(([loc, lPhotos]) => { lPhotos.sort((a, b) => b.date.localeCompare(a.date)); return [loc, lPhotos]; })
+      .sort(([, a], [, b]) => b[0].date.localeCompare(a[0].date));
+    const yearFrames = entries.reduce((s, [, ph]) => s + ph.length, 0);
+    return `
+    <div class="reveal-section mb-28 md:mb-40">
+      <div class="flex flex-wrap items-baseline gap-x-6 gap-y-2 mb-10 md:mb-16">
+        <h2 class="reveal-year year-mast" style="font-size:clamp(3.4rem,13vw,9rem)">${year}</h2>
+        <span class="readout" style="font-size:10.5px;letter-spacing:.24em">${entries.length} ${entries.length > 1 ? "ROLLS" : "ROLL"} · ${yearFrames} ${yearFrames > 1 ? "FRAMES" : "FRAME"}</span>
+      </div>
+      ${entries.map(([loc, lPhotos], li) => {
           const accordionId = "acc-" + year + "-" + loc.replace(/[^a-z0-9]/gi, "");
           const newestD = lPhotos[0].date;
           const oldestD = lPhotos[lPhotos.length - 1].date;
           const dateLabel = newestD === oldestD ? newestD : `${oldestD} – ${newestD}`;
+          const rollNo = String(li + 1).padStart(2, "0");
+          const cnt = lPhotos.length;
           return `
-          <div class="mb-8">
-            <div class="accordion-header open cursor-pointer group flex items-center gap-4 mb-0"
-                 onclick="toggleAccordion('${accordionId}', this)">
-              <div class="flex-1 min-w-0">
-                <p class="timeline-location text-xl md:text-5xl font-bold text-white tracking-tight">${loc}</p>
-                <p class="text-sm text-on-surface-variant/40 tracking-widest mt-1.5">${dateLabel}</p>
+          <div class="mb-14 md:mb-20">
+            <div class="accordion-header open cursor-pointer group mb-0" onclick="toggleAccordion('${accordionId}', this)">
+              <p class="roll-label" style="margin-bottom:10px">Roll ${rollNo} &nbsp;·&nbsp; ${cnt} ${cnt > 1 ? "frames" : "frame"} &nbsp;·&nbsp; ${dateLabel}</p>
+              <div class="roll-head">
+                <p class="timeline-location rh-place" style="font-size:clamp(1.55rem,4.4vw,3rem)">${loc}</p>
+                <span class="roll-rule"></span>
+                <span class="material-symbols-outlined text-2xl acc-icon group-hover:text-on-surface transition-colors flex-shrink-0" style="margin-bottom:6px">add</span>
               </div>
-              <div class="h-px bg-white/10 flex-grow hidden sm:block"></div>
-              <span class="material-symbols-outlined text-2xl text-on-surface-variant acc-icon group-hover:text-white transition-colors flex-shrink-0">add</span>
             </div>
             <div id="${accordionId}" class="accordion-body open">
-              <div class="accordion-inner pt-8">
+              <div class="accordion-inner pt-8 md:pt-10">
                 ${renderPhotoGrid(lPhotos)}
               </div>
             </div>
           </div>`;
       }).join("")}
-    </div>
-  `).join("");
+    </div>`;
+  }).join("");
   // Observe newly rendered reveal elements
   observeReveal();
   // Scroll to specific photo if returning from detail view
@@ -2876,28 +3029,32 @@ function showDetail(id) {
   if (!photo) return;
   currentDetailPhoto = photo;
 
+  const logRow = (k, v) => v ? `<div class="log-row"><span class="lr-key">${k}</span><span class="lr-dots"></span><span class="lr-val">${v}</span></div>` : "";
   document.getElementById("detail-content").innerHTML = `
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
-      <div id="detail-img-wrap" class="ghost-border overflow-hidden">
-        <img src="${photo.url}" alt="${photo.location}" class="w-full object-contain max-h-[80vh] cursor-zoom-in" onclick="openLightbox('${photo.url}')"/>
+    <div class="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-10 lg:gap-16 items-start">
+      <div id="detail-img-wrap" class="print-mount">
+        <img src="${photo.url}" alt="${photo.location}" class="cursor-zoom-in" style="max-height:76vh;object-fit:contain;margin:0 auto" onclick="openLightbox('${photo.url}')"/>
       </div>
-      <div class="lg:pt-8">
-        <p class="text-xs tracking-widest uppercase text-on-surface-variant mb-2">${photo.date}</p>
-        <h1 class="text-4xl md:text-5xl font-bold tracking-tight text-white mb-2 leading-tight">${photo.location}</h1>
-        <p class="text-on-surface-variant text-base mb-8">${photo.category}</p>
+      <div class="lg:pt-2">
+        <p class="eyebrow mb-4">${photo.category || "Frame"}${photo.year ? " · " + photo.year : ""}</p>
+        <h1 class="detail-place mb-6" style="font-size:clamp(2.4rem,6vw,4rem)">${photo.location}</h1>
 
-        ${photo.caption ? `<p class="text-on-surface-variant leading-relaxed mb-8 text-base">${photo.caption}</p>` : ""}
+        ${photo.caption ? `<p class="mb-8" style="color:var(--silver-dim);font-size:1.15rem;line-height:1.55;max-width:42ch">${photo.caption}</p>` : ""}
 
-        <div class="space-y-3 border-t border-white/10 pt-6 mb-8">
-          ${photo.camera ? `<div class="flex justify-between text-sm"><span class="text-on-surface-variant tracking-wider text-xs uppercase">Camera</span><span class="text-white font-medium">${photo.camera}</span></div>` : ""}
-          ${photo.lens   ? `<div class="flex justify-between text-sm"><span class="text-on-surface-variant tracking-wider text-xs uppercase">Lens</span><span class="text-white font-medium">${photo.lens}</span></div>` : ""}
-          <div class="flex justify-between text-sm"><span class="text-on-surface-variant tracking-wider text-xs uppercase">Date</span><span class="text-white font-medium">${photo.date}</span></div>
-          <div class="flex justify-between text-sm"><span class="text-on-surface-variant tracking-wider text-xs uppercase">Location</span><span class="text-white font-medium">${photo.location}</span></div>
+        <div class="log-panel mt-2 mb-9">
+          <p class="roll-label" style="padding:16px 0 6px">Developer's Log</p>
+          ${logRow("Camera", photo.camera)}
+          ${logRow("Lens", photo.lens)}
+          ${logRow("White Bal.", photo.whiteBalance)}
+          ${logRow("Date", photo.date)}
+          ${logRow("Location", photo.location)}
+          ${logRow("Subject", photo.category)}
+          ${logRow("Shot by", photo.artist)}
         </div>
 
-        <button onclick="openDownloadModal()" class="flex items-center gap-2 text-xs tracking-widest uppercase text-on-surface-variant hover:text-white transition-colors group border border-white/10 hover:border-white/30 rounded px-4 py-2.5">
+        <button onclick="openDownloadModal()" class="btn-ghost inline-flex items-center gap-2">
           <span class="material-symbols-outlined text-base">download</span>
-          Download
+          Make a print
         </button>
       </div>
     </div>
