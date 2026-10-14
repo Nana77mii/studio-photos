@@ -6,7 +6,15 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
 <meta http-equiv="Pragma" content="no-cache"/>
 <meta http-equiv="Expires" content="0"/>
-<title>Nana7mii's Echoes' In Pixels</title>
+<title>Echoes In Pixels — Nana77mii's Memory Cabin</title>
+<meta name="description" content="A personal photography contact sheet — frames numbered and grouped by roll, like a field notebook from the darkroom. Shot on Canon EOS 80D."/>
+<meta name="theme-color" content="#15141A"/>
+<meta property="og:type" content="website"/>
+<meta property="og:title" content="Echoes In Pixels — Nana77mii's Memory Cabin"/>
+<meta property="og:description" content="A personal photography contact sheet — frames numbered and grouped by roll, like a field notebook from the darkroom."/>
+<meta property="og:image" content="https://raw.githubusercontent.com/Nana77mii/studio-photos/main/photos/hero.jpg"/>
+<meta property="og:url" content="https://nana77mii.github.io/studio-photos/"/>
+<meta name="twitter:card" content="summary_large_image"/>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
@@ -237,6 +245,15 @@ body.fonts-ready { opacity:1; transition:opacity 0.15s; }
 #lightbox.hidden { display:none; }
 #lightbox-img { max-width:95vw; max-height:95vh; object-fit:contain; cursor:grab; user-select:none; -webkit-user-select:none; transition:transform 0.08s linear; }
 #lightbox-img.grabbing { cursor:grabbing; transition:none; }
+.lb-nav { position:fixed; top:50%; transform:translateY(-50%); z-index:10000; background:none; border:0; color:rgba(207,205,214,.65); font-family:'Space Mono',monospace; font-size:34px; line-height:1; padding:18px 20px; cursor:pointer; user-select:none; transition:color .2s; }
+.lb-nav:hover { color:#fff; }
+.lb-prev { left:6px; } .lb-next { right:6px; }
+.lb-caption { position:fixed; bottom:18px; left:50%; transform:translateX(-50%); z-index:10000; font-family:'Space Mono',monospace; font-size:10.5px; letter-spacing:.22em; text-transform:uppercase; color:#7C7987; white-space:nowrap; pointer-events:none; }
+@media (max-width:640px){ .lb-nav { font-size:26px; padding:14px 10px; } .lb-caption { font-size:9px; letter-spacing:.16em; } }
+/* Frames "develop" as they arrive — opacity only, cheap and theme-true */
+.img-develop { opacity:0; transition:opacity .6s ease; }
+.img-develop.loaded { opacity:1; }
+@media (prefers-reduced-motion:reduce){ .img-develop { opacity:1; transition:none; } }
 .lb-close { position:absolute; top:20px; right:24px; color:rgba(255,255,255,0.7); font-size:32px; line-height:1; background:none; border:none; cursor:pointer; z-index:10000; }
 .lb-close:hover { color:#fff; }
 
@@ -691,8 +708,8 @@ body.fonts-ready { opacity:1; transition:opacity 0.15s; }
   <!-- Hero: the field-log cover -->
   <section class="hero-darkroom">
     <div class="hero-frame">
-      <img id="hero-bg" alt="Hero" class="hero-img-in" style="display:none"
-           onload="this.style.display=''" onerror="this.style.display='none'"/>
+      <img id="hero-bg" alt="Hero" class="hero-img-in" style="display:none" fetchpriority="high"
+           onload="this.style.display=''" onerror="if(this.dataset.full&&this.src!==this.dataset.full){this.src=this.dataset.full}else{this.style.display='none'}"/>
     </div>
     <div class="hero-vignette"></div>
 
@@ -1302,6 +1319,16 @@ async function ghFetch(path, opts = {}) {
   return res.status === 204 ? null : res.json();
 }
 
+/* ── Image renditions ──
+   Originals on raw.githubusercontent run 5–10 MB each; browsing surfaces load
+   sized renditions through the wsrv.nl image proxy instead (contact sheet 800px,
+   detail 1600px, lightbox 2400px upgrading to the original). Every <img> keeps
+   an onerror fallback to the original URL so a proxy outage never blanks the site. */
+function thumbUrl(url, w) {
+  if (!/\.(jpe?g|png|webp|gif|avif)(\?|$)/i.test(url)) return url;
+  return `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=${w}&q=82&output=webp`;
+}
+
 // Translate raw GitHub API errors into actionable status-toast messages.
 function friendlyUploadError(message) {
   if (/bad credentials|401/i.test(message)) return "GitHub token invalid or expired — paste a new one in Config";
@@ -1775,7 +1802,7 @@ async function loadAdminGallery() {
     gallery.innerHTML = sorted.map(p => `
       <div class="relative group">
         <div class="bulk-checkbox" data-id="${p.id}" onclick="event.stopPropagation();togglePhotoSelect('${p.id}')"></div>
-        <img src="${p.url}" class="photo-thumb w-full ghost-border" loading="lazy" alt="${p.location}"/>
+        <img src="${thumbUrl(p.url, 400)}" data-full="${p.url}" class="photo-thumb w-full ghost-border" loading="lazy" decoding="async" alt="${p.location}" onerror="this.onerror=null;this.src=this.dataset.full"/>
         <div class="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 px-2">
           <p class="text-xs text-white text-center leading-tight">${p.location}<br/><span class="text-white/50">${p.date}</span></p>
           <div class="flex items-center gap-3">
@@ -2267,7 +2294,7 @@ function applySettings(s) {
 
   if (s.heroBgUrl) {
     const bg = document.getElementById("hero-bg");
-    if (bg) bg.src = s.heroBgUrl;
+    if (bg) { bg.dataset.full = s.heroBgUrl; bg.src = thumbUrl(s.heroBgUrl, 1920); }
     const thumb = document.getElementById("hero-bg-thumb");
     const empty = document.getElementById("hero-bg-thumb-empty");
     if (thumb) { thumb.src = s.heroBgUrl; thumb.style.display = ""; }
@@ -2853,7 +2880,7 @@ function renderPhotoGrid(photos) {
            onclick="${editModeActive ? '' : `showDetail('${p.id}')`}"
            ${editModeActive ? `draggable="true" ondragstart="onEditDragStart(event,'${p.id}')" ondragover="onEditDragOver(event)" ondragleave="onEditDragLeave(event)" ondrop="onEditDrop(event,'${p.id}')"` : ''}>
         <span class="frame-num">${frameNo}</span>
-        <img src="${p.url}" alt="${p.location}" class="gallery-img" loading="lazy"/>
+        <img src="${thumbUrl(p.url, 800)}" data-full="${p.url}" alt="${p.location}" class="gallery-img img-develop" loading="lazy" decoding="async" onload="this.classList.add('loaded')" onerror="this.onerror=null;this.src=this.dataset.full"/>
         <div class="frame-caption">
           <span class="fc-place">${p.location}</span>
           <span class="fc-meta photo-caption">${p.category || ""}${p.date ? " · " + p.date : ""}</span>
@@ -3078,6 +3105,8 @@ function rerenderTimeline() {
       }).join("")}
     </div>`;
   }).join("");
+  // Capture the as-rendered order for detail/lightbox prev-next navigation
+  displayOrder = [...container.querySelectorAll(".gallery-card")].map(el => el.id.slice(5));
   // Observe newly rendered reveal elements
   observeReveal();
   // Scroll to specific photo if returning from detail view
@@ -3103,17 +3132,32 @@ function rerenderTimeline() {
    PHOTO DETAIL VIEW
 ═══════════════════════════════════════════════════════════ */
 let currentDetailPhoto = null;
+let displayOrder = [];   // photo ids in on-page contact-sheet order; feeds detail + lightbox navigation
 
 function showDetail(id) {
   const photo = photosCache.find(p => p.id === id);
   if (!photo) return;
   currentDetailPhoto = photo;
 
+  const ord = displayOrder.length ? displayOrder : photosCache.map(p => p.id);
+  const pos = ord.indexOf(id);
+  const navBtn = (dir, label, disabled) =>
+    `<button onclick="navDetail(${dir})" class="transition-colors ${disabled ? "opacity-30 pointer-events-none" : "hover:text-white"}" style="color:#7C7987;letter-spacing:.22em;text-transform:uppercase">${label}</button>`;
+  const frameNav = pos < 0 ? "" : `
+    <div class="flex items-center justify-between mb-8" style="font-family:'Space Mono',monospace;font-size:10.5px">
+      <span style="color:#7C7987;letter-spacing:.22em">FR ${String(pos + 1).padStart(2, "0")} / ${String(ord.length).padStart(2, "0")}</span>
+      <span class="flex gap-7">
+        ${navBtn(-1, "&#8249; Prev frame", pos <= 0)}
+        ${navBtn(1, "Next frame &#8250;", pos >= ord.length - 1)}
+      </span>
+    </div>`;
+
   const logRow = (k, v) => v ? `<div class="log-row"><span class="lr-key">${k}</span><span class="lr-dots"></span><span class="lr-val">${v}</span></div>` : "";
   document.getElementById("detail-content").innerHTML = `
+    ${frameNav}
     <div class="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-10 lg:gap-16 items-start">
       <div id="detail-img-wrap" class="print-mount">
-        <img src="${photo.url}" alt="${photo.location}" class="cursor-zoom-in" style="max-height:76vh;object-fit:contain;margin:0 auto" onclick="openLightbox('${photo.url}')"/>
+        <img src="${thumbUrl(photo.url, 1600)}" data-full="${photo.url}" alt="${photo.location}" class="cursor-zoom-in img-develop" style="max-height:76vh;object-fit:contain;margin:0 auto" onload="this.classList.add('loaded')" onerror="this.onerror=null;this.src=this.dataset.full" onclick="openLightboxById('${photo.id}')"/>
       </div>
       <div class="lg:pt-2">
         <p class="eyebrow mb-4">${photo.category || "Frame"}${photo.year ? " · " + photo.year : ""}</p>
@@ -3141,6 +3185,14 @@ function showDetail(id) {
   `;
 
   showView("detail");
+}
+
+// Step to the previous/next frame in display order (contact-sheet sequence).
+function navDetail(dir) {
+  if (!currentDetailPhoto) return;
+  const ord = displayOrder.length ? displayOrder : photosCache.map(p => p.id);
+  const next = ord[ord.indexOf(currentDetailPhoto.id) + dir];
+  if (next) showDetail(next);
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -3335,15 +3387,60 @@ else document.addEventListener('DOMContentLoaded', initHeroMotion);
    LIGHTBOX — fullscreen photo viewer with scroll-to-zoom
 ═══════════════════════════════════════════════════════════ */
 let lbState = { scale: 1, panX: 0, panY: 0, dragging: false, sx: 0, sy: 0 };
+let lbList = [];     // photo ids the lightbox can step through (display order)
+let lbPos = -1;      // current index into lbList; -1 = single-image legacy mode
+let lbLoadSeq = 0;   // guards the async original-resolution upgrade against stale loads
 
+// Legacy entry: bare URL, no prev/next.
 function openLightbox(url) {
+  lbList = []; lbPos = -1;
+  lightboxShow(url, null);
+}
+
+// Slideshow entry: opens a photo with prev/next across the whole contact sheet.
+function openLightboxById(id) {
+  const ord = displayOrder.length ? displayOrder : photosCache.map(p => p.id);
+  lbList = ord; lbPos = ord.indexOf(id);
+  const p = photosCache.find(x => x.id === id);
+  if (!p) return;
+  lightboxShow(p.url, p);
+}
+
+function lightboxShow(url, photo) {
   const lb = document.getElementById("lightbox");
   const img = document.getElementById("lightbox-img");
-  img.src = url;
+  const seq = ++lbLoadSeq;
+  // Show a fast 2400px rendition at once; swap in the original when it arrives
+  // so wheel/pinch zoom stays sharp.
+  const fast = thumbUrl(url, 2400);
+  img.src = fast;
+  if (fast !== url) {
+    const full = new Image();
+    full.onload = () => { if (seq === lbLoadSeq) img.src = url; };
+    full.src = url;
+  }
+  const hasNav = lbPos >= 0 && lbList.length > 1;
+  document.getElementById("lb-prev").style.display = hasNav ? "" : "none";
+  document.getElementById("lb-next").style.display = hasNav ? "" : "none";
+  document.getElementById("lb-caption").textContent = photo
+    ? `FR ${String(lbPos + 1).padStart(2, "0")} / ${String(lbList.length).padStart(2, "0")} · ${photo.location}${photo.date ? " · " + photo.date : ""}`
+    : "";
   lb.classList.remove("hidden");
   document.body.style.overflow = "hidden";
   lbState = { scale: 1, panX: 0, panY: 0, dragging: false, sx: 0, sy: 0 };
   applyLbTransform();
+  // Warm the neighbours' renditions so stepping feels instant.
+  if (hasNav) [lbPos - 1, lbPos + 1].forEach(i => {
+    const n = photosCache.find(x => x.id === lbList[i]);
+    if (n) { const w = new Image(); w.src = thumbUrl(n.url, 2400); }
+  });
+}
+
+function lightboxNav(dir) {
+  if (lbPos < 0 || lbList.length < 2) return;
+  lbPos = (lbPos + dir + lbList.length) % lbList.length;
+  const p = photosCache.find(x => x.id === lbList[lbPos]);
+  if (p) lightboxShow(p.url, p);
 }
 
 function closeLightbox() {
@@ -3410,6 +3507,37 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
   }, { passive: true });
+
+  // Horizontal swipe steps between frames (only when not zoomed in)
+  const lb = document.getElementById("lightbox");
+  let swipeX = null, swipeY = null;
+  lb.addEventListener("touchstart", e => {
+    if (e.touches.length === 1 && lbState.scale <= 1) { swipeX = e.touches[0].clientX; swipeY = e.touches[0].clientY; }
+    else swipeX = null;
+  }, { passive: true });
+  lb.addEventListener("touchend", e => {
+    if (swipeX === null || lbState.scale > 1) { swipeX = null; return; }
+    const dx = e.changedTouches[0].clientX - swipeX;
+    const dy = e.changedTouches[0].clientY - swipeY;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) lightboxNav(dx < 0 ? 1 : -1);
+    swipeX = null;
+  }, { passive: true });
+});
+
+// Keyboard: arrows step frames in the lightbox or the detail view, Esc closes.
+document.addEventListener("keydown", e => {
+  if (e.target.closest?.("input, textarea, select")) return;
+  const lbOpen = !document.getElementById("lightbox").classList.contains("hidden");
+  if (lbOpen) {
+    if (e.key === "Escape") closeLightbox();
+    else if (e.key === "ArrowLeft") lightboxNav(-1);
+    else if (e.key === "ArrowRight") lightboxNav(1);
+    return;
+  }
+  if (currentView === "detail") {
+    if (e.key === "ArrowLeft") navDetail(-1);
+    else if (e.key === "ArrowRight") navDetail(1);
+  }
 });
 
 /* ═══════════════════════════════════════════════════════════
@@ -3445,7 +3573,10 @@ document.addEventListener("DOMContentLoaded", () => {
 </script>
 <div id="lightbox" class="hidden" onclick="closeLightbox()">
   <button class="lb-close" onclick="closeLightbox()">&times;</button>
+  <button id="lb-prev" class="lb-nav lb-prev" onclick="event.stopPropagation();lightboxNav(-1)" aria-label="Previous frame">&#8249;</button>
+  <button id="lb-next" class="lb-nav lb-next" onclick="event.stopPropagation();lightboxNav(1)" aria-label="Next frame">&#8250;</button>
   <img id="lightbox-img" src="" alt="" onclick="event.stopPropagation()" draggable="false"/>
+  <p id="lb-caption" class="lb-caption"></p>
 </div>
 </body>
 </html>
