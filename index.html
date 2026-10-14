@@ -866,7 +866,8 @@ body.fonts-ready { opacity:1; transition:opacity 0.15s; }
         <label class="text-xs text-on-surface-variant mb-1 block">Personal Access Token
           <span class="text-white/30 ml-1">(stored locally in browser only)</span>
         </label>
-        <input id="cfg-token" type="password" class="admin-input text-sm" placeholder="ghp_xxxxxxxxxxxxxxxx"/>
+        <input id="cfg-token" type="password" class="admin-input text-sm" placeholder="github_pat_… or ghp_…"/>
+        <p id="cfg-token-status" class="text-xs mt-2" style="color:var(--dust)"></p>
       </div>
       <button onclick="saveConfig()" class="btn-primary text-xs">Save Config</button>
     </div>
@@ -1208,7 +1209,7 @@ function showView(name) {
   if (name === "home") loadTimeline();
   updateEditLayoutBtn();
   if (name === "chronicles") loadChronicles();
-  if (name === "admin") { loadConfig(); loadAdminGallery(); fillSettingsForm(siteSettings); }
+  if (name === "admin") { loadConfig(); loadAdminGallery(); fillSettingsForm(siteSettings); verifyTokenStatus(); }
 }
 
 function toggleMobileMenu() {
@@ -1313,7 +1314,26 @@ async function saveConfig() {
   } catch (e) {
     showStatus("Config saved, but GitHub rejected the token: " + friendlyUploadError(e.message), "error");
   }
+  verifyTokenStatus();
   loadAdminGallery();
+}
+
+// Always-visible token health line under the Config form, so a stale or
+// read-only token is obvious the moment the Darkroom opens.
+async function verifyTokenStatus() {
+  const el = document.getElementById("cfg-token-status");
+  if (!el) return;
+  const { token } = getConfig();
+  const bad = msg => { el.textContent = "✗ " + msg; el.style.color = "#f87171"; };
+  if (!token) { bad("No token saved — uploads and edits are off. Paste one above and Save Config."); return; }
+  el.textContent = "Checking token…"; el.style.color = "var(--dust)";
+  try {
+    const repo = await ghFetch("");
+    if (repo.permissions?.push) { el.textContent = `✓ Token OK — write access to ${repo.full_name}`; el.style.color = "var(--silver)"; }
+    else bad(`This token can read ${repo.full_name} but cannot write — it needs Contents: Read and write.`);
+  } catch (e) {
+    bad("GitHub rejected this token: " + friendlyUploadError(e.message));
+  }
 }
 
 function loadConfig() {
