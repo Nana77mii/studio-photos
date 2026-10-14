@@ -312,9 +312,27 @@ body.fonts-ready { opacity:1; transition:opacity 0.15s; }
   60%  { opacity:1; }
   to   { opacity:1; transform:none; filter:none; }
 }
+/* Mirrored variants for content arriving from the top edge (scrolling up) */
+@keyframes developPrintDown {
+  from { opacity:0; transform:translateY(-56px); filter:brightness(.45) contrast(.75); }
+  60%  { opacity:1; }
+  to   { opacity:1; transform:none; filter:none; }
+}
+@keyframes developLeadDown {
+  from { opacity:0; transform:translateY(-40px) scale(.975); filter:brightness(.45) contrast(.75); }
+  60%  { opacity:1; }
+  to   { opacity:1; transform:none; filter:none; }
+}
 .reveal-card:not(.visible) { opacity:0; }
 .reveal-card.visible { animation:developPrint 1.2s cubic-bezier(.16,1,.3,1) backwards; animation-delay:calc(var(--i,0) * .1s); }
+.reveal-card.visible.from-above { animation-name:developPrintDown; }
 .row-lead .reveal-card.visible { animation-name:developLead; animation-duration:1.5s; }
+.row-lead .reveal-card.visible.from-above { animation-name:developLeadDown; }
+/* Transition-based blocks start from above when they re-enter from the top */
+.reveal-year.from-above:not(.visible) { transform:translateY(-20px); }
+.reveal-roll.from-above:not(.visible) { transform:translateY(-36px); }
+.reveal-roll.from-above:not(.visible) .roll-label,
+.reveal-roll.from-above:not(.visible) .rh-place { transform:translateY(-18px); }
 
 /* The year block is now just a scroll/music hook — the rolls carry the motion */
 .reveal-section {}
@@ -3484,10 +3502,21 @@ function showStatus(msg, type = "success") {
    REVEAL OBSERVER (Apple-style scroll-triggered animations)
 ═══════════════════════════════════════════════════════════ */
 let revealObserver = null;
+let revealExitObserver = null;
+// Live scroll direction (+1 down, -1 up); the scroll event lands before the
+// observer callback in the same frame, so it is current when a reveal fires.
+let lastScrollY = window.scrollY, scrollDir = 1;
+window.addEventListener('scroll', () => {
+  const y = window.scrollY;
+  if (y !== lastScrollY) scrollDir = y > lastScrollY ? 1 : -1;
+  lastScrollY = y;
+}, { passive: true });
 
+// Reveals replay: an element develops in each time it enters the viewport,
+// from whichever edge it arrives at, and is reset once it has fully left.
 function observeReveal() {
-  // Clean up previous observer
   if (revealObserver) revealObserver.disconnect();
+  if (revealExitObserver) revealExitObserver.disconnect();
 
   const targets = document.querySelectorAll('.reveal-section, .reveal-year, .reveal-roll, .reveal-card');
   if (targets.length === 0) return;
@@ -3499,24 +3528,29 @@ function observeReveal() {
     if (h2) yearSections[el] = h2.textContent.trim();
   });
 
+  // Enter: trigger once the element is 12% inside the viewport so the motion
+  // plays on screen. Only while scrolling up, and only for an element arriving
+  // at the top edge (box top above the viewport's middle), does it slide down
+  // into place — a jump that lands an element high on screen still rises.
   revealObserver = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        entry.target.classList.add('visible');
-        // Check if this is a year section → switch music
-        if (yearSections[entry.target]) {
-          checkTrackForYear(yearSections[entry.target]);
-        }
-      }
+      if (!entry.isIntersecting) return;
+      const el = entry.target;
+      const rootH = entry.rootBounds ? entry.rootBounds.height : window.innerHeight;
+      el.classList.toggle('from-above', scrollDir < 0 && entry.boundingClientRect.top < rootH / 2);
+      void el.offsetWidth;   // commit the direction before the transition starts
+      el.classList.add('visible');
+      if (yearSections[el]) checkTrackForYear(yearSections[el]);
     });
-  }, {
-    // Reveal only once the element is a little way inside the viewport, so the
-    // develop animation actually plays on screen instead of below the fold.
-    threshold: 0,
-    rootMargin: '0px 0px -12% 0px'
-  });
+  }, { threshold: 0, rootMargin: '0px 0px -12% 0px' });
 
-  targets.forEach(el => revealObserver.observe(el));
+  // Exit: reset only when the element is wholly off screen plus a buffer, so
+  // nothing ever fades while still visible.
+  revealExitObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => { if (!entry.isIntersecting) entry.target.classList.remove('visible'); });
+  }, { threshold: 0, rootMargin: '15% 0px 15% 0px' });
+
+  targets.forEach(el => { revealObserver.observe(el); revealExitObserver.observe(el); });
 }
 
 /* ═══════════════════════════════════════════════════════════
