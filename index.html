@@ -249,8 +249,6 @@ body.fonts-ready { opacity:1; transition:opacity 0.15s; }
 .acc-icon { transition:transform 0.5s cubic-bezier(0.175,0.885,0.32,1.275); }
 .accordion-header.open .acc-icon { transform:rotate(45deg); }
 
-/* ── Detail page: the print first, full width; the log beneath ── */
-.detail-mount img { display:block; width:auto; max-width:100%; max-height:82vh; margin:0 auto; }
 
 /* ── Lightbox (fullscreen photo viewer) ── */
 #lightbox { position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.96); display:flex; align-items:center; justify-content:center; cursor:zoom-out; }
@@ -493,6 +491,10 @@ body.fonts-ready { opacity:1; transition:opacity 0.15s; }
 .print-mount { background:var(--matboard); border:1px solid var(--rule); padding:20px; }
 @media (min-width:768px){ .print-mount { padding:30px; } }
 .print-mount img { display:block; width:100%; }
+/* Detail view: the print keeps its own proportions — never stretched to the
+   mount. Sized by height first (82vh), then by the column width, centred on
+   the mat. Declared after .print-mount img so it wins the width. */
+.print-mount.detail-mount img { width:auto; height:auto; max-width:100%; max-height:82vh; object-fit:contain; margin:0 auto; }
 .detail-place { font-family:var(--serif) !important; font-weight:700 !important; color:var(--silver); line-height:0.98; letter-spacing:-0.02em; }
 .log-panel { border-top:1px solid var(--rule); }
 .log-row { display:flex; align-items:baseline; gap:10px; font-family:var(--mono); font-size:12px; padding:11px 0; border-bottom:1px solid var(--rule-soft); }
