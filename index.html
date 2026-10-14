@@ -1283,19 +1283,32 @@ function goAdmin() {
 /* ═══════════════════════════════════════════════════════════
    GITHUB CONFIG
 ═══════════════════════════════════════════════════════════ */
-function saveConfig() {
+async function saveConfig() {
+  // Tokens pasted from chat apps often carry zero-width or line-break characters.
+  const clean = s => s.replace(/[\s\u200B-\u200D\uFEFF]/g, "");
+  const tokenField = document.getElementById("cfg-token");
+  tokenField.value = clean(tokenField.value);
   ghConfig = {
     owner: document.getElementById("cfg-owner").value.trim(),
     repo:  document.getElementById("cfg-repo").value.trim(),
     branch: document.getElementById("cfg-branch").value.trim() || "main",
-    token: document.getElementById("cfg-token").value.trim()
+    token: tokenField.value
   };
   localStorage.setItem("gh_config", JSON.stringify({
     owner: ghConfig.owner, repo: ghConfig.repo, branch: ghConfig.branch
   }));
   // Token stored separately (slightly safer UX pattern)
   localStorage.setItem("gh_token", ghConfig.token);
-  showStatus("Config saved!", "success");
+  // Verify right away, so a stale or mistyped token is caught here rather than
+  // at the next upload.
+  if (!ghConfig.token) { showStatus("Config saved — no token, so uploads and edits are off", "error"); return; }
+  try {
+    const repo = await ghFetch("");
+    if (repo.permissions?.push) showStatus("Config saved — token verified, write access OK", "success");
+    else showStatus("Config saved, but this token can't write to the repo — it needs Contents: Read and write", "error");
+  } catch (e) {
+    showStatus("Config saved, but GitHub rejected the token: " + friendlyUploadError(e.message), "error");
+  }
   loadAdminGallery();
 }
 
