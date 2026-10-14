@@ -1340,13 +1340,17 @@ async function ghFetch(path, opts = {}) {
 }
 
 /* ── Image renditions ──
-   Originals on raw.githubusercontent run 5–10 MB each; browsing surfaces load
-   sized renditions through the wsrv.nl image proxy instead (contact sheet 800px,
-   detail 1600px, lightbox 2400px upgrading to the original). Every <img> keeps
-   an onerror fallback to the original URL so a proxy outage never blanks the site. */
-function thumbUrl(url, w) {
+   Originals on raw.githubusercontent run 8–15 MB each; browsing surfaces load
+   sized JPEG renditions through the wsrv.nl image proxy instead. Quality over
+   weight: a lead print is 3000px/q92 (~2 MB), a sheet frame 2000px/q90 (~1 MB),
+   so nothing is upscaled on a retina desktop. The lightbox still upgrades to the
+   original. Every <img> keeps an onerror fallback to the original URL so a
+   proxy outage never blanks the site. */
+const RENDITION = { lead: 3000, frame: 2000, detail: 3000, lightbox: 3000, hero: 2400, admin: 600 };
+function thumbUrl(url, w, q) {
   if (!/\.(jpe?g|png|webp|gif|avif)(\?|$)/i.test(url)) return url;
-  return `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=${w}&q=82&output=webp`;
+  const quality = q ?? (w >= 3000 ? 92 : 90);
+  return `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=${w}&q=${quality}&output=jpg`;
 }
 
 /* ── EXIF readout formatting ── */
@@ -1843,12 +1847,15 @@ async function loadAdminGallery() {
     gallery.innerHTML = sorted.map(p => `
       <div class="relative group">
         <div class="bulk-checkbox" data-id="${p.id}" onclick="event.stopPropagation();togglePhotoSelect('${p.id}')"></div>
-        <img src="${thumbUrl(p.url, 400)}" data-full="${p.url}" class="photo-thumb w-full ghost-border" loading="lazy" decoding="async" alt="${p.location}" onerror="this.onerror=null;this.src=this.dataset.full"/>
+        <img src="${thumbUrl(p.url, RENDITION.admin)}" data-full="${p.url}" class="photo-thumb w-full ghost-border" loading="lazy" decoding="async" alt="${p.location}" onerror="this.onerror=null;this.src=this.dataset.full"/>
         <div class="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 px-2">
           <p class="text-xs text-white text-center leading-tight">${p.location}<br/><span class="text-white/50">${p.date}</span></p>
           <div class="flex items-center gap-3">
             <button onclick="openEditModal('${p.id}')" class="text-xs text-white/70 hover:text-white transition-colors flex items-center gap-0.5">
               <span class="material-symbols-outlined text-sm">edit</span> Edit
+            </button>
+            <button onclick="setLeadPrint('${p.id}')" class="text-xs text-white/70 hover:text-white transition-colors flex items-center gap-0.5" title="Make this the lead print of its roll">
+              <span class="material-symbols-outlined text-sm">star</span> Lead
             </button>
             <button onclick="deletePhoto('${p.id}')" class="text-xs text-red-400 hover:text-red-300 transition-colors flex items-center gap-0.5">
               <span class="material-symbols-outlined text-sm">delete</span> Del
@@ -2333,7 +2340,7 @@ function applySettings(s) {
 
   if (s.heroBgUrl) {
     const bg = document.getElementById("hero-bg");
-    if (bg) { bg.dataset.full = s.heroBgUrl; bg.src = thumbUrl(s.heroBgUrl, 1920); }
+    if (bg) { bg.dataset.full = s.heroBgUrl; bg.src = thumbUrl(s.heroBgUrl, RENDITION.hero); }
     const thumb = document.getElementById("hero-bg-thumb");
     const empty = document.getElementById("hero-bg-thumb-empty");
     if (thumb) { thumb.src = s.heroBgUrl; thumb.style.display = ""; }
@@ -2898,13 +2905,14 @@ function renderPhotoGrid(photos) {
     return Math.max(0.5, Math.min(2.4, r));     // clamp extremes (panorama / tall)
   };
 
-  const card = (p, idx, k = 0) => {
+  const card = (p, idx, k = 0, w = RENDITION.frame) => {
     const r = ratioOf(p);
     const frameNo = String((idx == null ? 0 : idx) + 1).padStart(2, "0"); // contact-sheet frame index
     const savedScale = (editModeActive ? editLayouts : layouts)[p.id]?.scale || 1;
     const scaleStyle = savedScale !== 1 ? `transform:scale(${savedScale});` : '';
     const editCtrl = editModeActive ? `
       <div class="edit-card-ctrl">
+        <button class="ecb" onclick="event.stopPropagation();makeLead('${p.id}')" title="Make this the lead print of the roll">★ Lead</button>
         <button class="ecb" onclick="event.stopPropagation();movePhoto('${p.id}',-1)" title="Move earlier">←</button>
         <span class="text-[10px] tracking-widest text-white/50">${r >= 1 ? 'LANDSCAPE' : 'PORTRAIT'}</span>
         <button class="ecb" onclick="event.stopPropagation();movePhoto('${p.id}',1)" title="Move later">→</button>
@@ -2919,7 +2927,7 @@ function renderPhotoGrid(photos) {
            onclick="${editModeActive ? '' : `showDetail('${p.id}')`}"
            ${editModeActive ? `draggable="true" ondragstart="onEditDragStart(event,'${p.id}')" ondragover="onEditDragOver(event)" ondragleave="onEditDragLeave(event)" ondrop="onEditDrop(event,'${p.id}')"` : ''}>
         <span class="frame-num">${frameNo}</span>
-        <img src="${thumbUrl(p.url, 800)}" data-full="${p.url}" alt="${p.location}" class="gallery-img img-develop" loading="lazy" decoding="async" onload="this.classList.add('loaded')" onerror="this.onerror=null;this.src=this.dataset.full"/>
+        <img src="${thumbUrl(p.url, w)}" data-full="${p.url}" alt="${p.location}" class="gallery-img img-develop" loading="lazy" decoding="async" onload="this.classList.add('loaded')" onerror="this.onerror=null;this.src=this.dataset.full"/>
         <div class="frame-caption">
           <span class="fc-place">${p.location}</span>
           <span class="fc-meta photo-caption">${p.category || ""}${p.date ? " · " + p.date : ""}</span>
@@ -2948,8 +2956,8 @@ function renderPhotoGrid(photos) {
 
   let g = 0;   // running frame number across the roll
   const html = rows.map(row => {
+    if (row.lead) return `<div class="sheet-row row-lead">${card(row.items[0], g++, 0, RENDITION.lead)}</div>`;
     const inner = row.items.map((p, k) => card(p, g++, k)).join("");
-    if (row.lead) return `<div class="sheet-row row-lead">${inner}</div>`;
     const sumR = row.items.reduce((s, p) => s + ratioOf(p), 0);
     const spacer = sumR < row.sMin ? `<div class="row-spacer" style="--s:${(row.sMin - sumR).toFixed(3)}"></div>` : "";
     return `<div class="sheet-row">${inner}${spacer}</div>`;
@@ -3025,6 +3033,42 @@ async function saveLayout() {
   } finally {
     prog.classList.add("hidden");
   }
+}
+
+// Edit mode: jump this frame to the front of its roll (frame 01 = the lead print).
+function makeLead(id) {
+  const p = photosCache.find(x => x.id === id);
+  if (!p) return;
+  const roll = photosCache
+    .filter(x => x.year === p.year && x.location === p.location)
+    .sort((a, b) => (editLayouts[a.id]?.order ?? 0) - (editLayouts[b.id]?.order ?? 0));
+  [p, ...roll.filter(x => x.id !== id)].forEach((x, i) => { editLayouts[x.id] = { ...(editLayouts[x.id] || {}), order: i }; });
+  rerenderTimeline();
+}
+
+// One-click lead print from the detail view or the Darkroom gallery: reorder the
+// roll so this frame is first and persist it to settings.json straight away.
+async function setLeadPrint(id) {
+  const p = photosCache.find(x => x.id === id);
+  if (!p) return;
+  const layouts = { ...(siteSettings.photoLayouts || {}) };
+  const roll = photosCache
+    .filter(x => x.year === p.year && x.location === p.location)
+    .sort((a, b) => ((layouts[a.id]?.order ?? 999) - (layouts[b.id]?.order ?? 999)) || b.date.localeCompare(a.date));
+  [p, ...roll.filter(x => x.id !== id)].forEach((x, i) => { layouts[x.id] = { ...(layouts[x.id] || {}), order: i }; });
+  siteSettings = { ...siteSettings, photoLayouts: layouts };
+  localStorage.setItem("site_settings", JSON.stringify(siteSettings));
+  try {
+    const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(siteSettings, null, 2))));
+    const sha = await getFileSha("settings.json");
+    await putFile("settings.json", b64, `Lead print for ${p.location}: ${id}`, sha);
+  } catch (err) {
+    showStatus("Lead print not saved: " + friendlyUploadError(err.message), "error");
+    return;
+  }
+  if (photosCache.length) rerenderTimeline();
+  if (currentView === "detail" && currentDetailPhoto?.id === id) showDetail(id);
+  showStatus(`Lead print set — ${p.location} now opens with this frame`, "success");
 }
 
 function movePhoto(id, direction) {
@@ -3210,23 +3254,34 @@ function showDetail(id) {
 
   const logRow = (k, v) => v ? `<div class="log-row"><span class="lr-key">${k}</span><span class="lr-dots"></span><span class="lr-val">${v}</span></div>` : "";
   const ro = lensReadout(photo.lens);
-  // The print first, at full width like a product hero; the log sits beneath.
+  // Admin-only: one click makes this frame the lead print of its roll.
+  const rollIds = ord.filter(x => { const q = photosCache.find(p => p.id === x); return q && q.year === photo.year && q.location === photo.location; });
+  const isLead = rollIds[0] === photo.id;
+  const leadBtn = !isAdminLoggedIn() ? "" : isLead
+    ? `<span class="inline-flex items-center gap-2 mt-2 roll-label" style="color:var(--silver)"><span class="material-symbols-outlined text-base">star</span> Lead print of this roll</span>`
+    : `<button onclick="setLeadPrint('${photo.id}')" class="btn-ghost inline-flex items-center gap-2 mt-2"><span class="material-symbols-outlined text-base">star</span> Set as lead print</button>`;
+  // The print on the left with its title beneath; the developer's log on the right.
   document.getElementById("detail-content").innerHTML = `
     ${frameNav}
-    <div id="detail-img-wrap" class="print-mount detail-mount">
-      <img src="${thumbUrl(photo.url, 2400)}" data-full="${photo.url}" alt="${photo.location}" class="cursor-zoom-in img-develop" onload="this.classList.add('loaded')" onerror="this.onerror=null;this.src=this.dataset.full" onclick="openLightboxById('${photo.id}')"/>
-    </div>
-    <div class="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-10 lg:gap-24 items-start mt-10 md:mt-14">
+    <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-10 lg:gap-12 items-start">
       <div>
-        <p class="eyebrow mb-4">${photo.category || "Frame"}${photo.year ? " · " + photo.year : ""}</p>
-        <h1 class="detail-place mb-6" style="font-size:clamp(2.4rem,5vw,4.4rem);text-wrap:balance">${photo.location}</h1>
-        ${photo.caption ? `<p class="mb-6" style="color:var(--silver-dim);font-size:1.15rem;line-height:1.55;max-width:46ch">${photo.caption}</p>` : ""}
-        <button onclick="openDownloadModal()" class="btn-ghost inline-flex items-center gap-2 mt-2">
-          <span class="material-symbols-outlined text-base">download</span>
-          Make a print
-        </button>
+        <div id="detail-img-wrap" class="print-mount detail-mount">
+          <img src="${thumbUrl(photo.url, RENDITION.detail)}" data-full="${photo.url}" alt="${photo.location}" class="cursor-zoom-in img-develop" onload="this.classList.add('loaded')" onerror="this.onerror=null;this.src=this.dataset.full" onclick="openLightboxById('${photo.id}')"/>
+        </div>
+        <div class="mt-8 md:mt-10">
+          <p class="eyebrow mb-4">${photo.category || "Frame"}${photo.year ? " · " + photo.year : ""}</p>
+          <h1 class="detail-place mb-5" style="font-size:clamp(2.2rem,4.2vw,3.6rem);text-wrap:balance">${photo.location}</h1>
+          ${photo.caption ? `<p class="mb-6" style="color:var(--silver-dim);font-size:1.15rem;line-height:1.55;max-width:52ch">${photo.caption}</p>` : ""}
+          <div class="flex flex-wrap items-center gap-x-8 gap-y-3">
+            <button onclick="openDownloadModal()" class="btn-ghost inline-flex items-center gap-2 mt-2">
+              <span class="material-symbols-outlined text-base">download</span>
+              Make a print
+            </button>
+            ${leadBtn}
+          </div>
+        </div>
       </div>
-      <div class="log-panel">
+      <div class="log-panel lg:sticky lg:top-24">
         <p class="roll-label" style="padding:16px 0 6px">Developer's log</p>
         ${logRow("Camera", photo.camera)}
         ${logRow("Lens", ro.lens)}
@@ -3468,9 +3523,9 @@ function lightboxShow(url, photo) {
   const lb = document.getElementById("lightbox");
   const img = document.getElementById("lightbox-img");
   const seq = ++lbLoadSeq;
-  // Show a fast 2400px rendition at once; swap in the original when it arrives
-  // so wheel/pinch zoom stays sharp.
-  const fast = thumbUrl(url, 2400);
+  // Show the 3000px rendition at once (same URL the sheet/detail already
+  // cached); swap in the original when it arrives so wheel/pinch zoom stays sharp.
+  const fast = thumbUrl(url, RENDITION.lightbox);
   img.src = fast;
   if (fast !== url) {
     const full = new Image();
@@ -3490,7 +3545,7 @@ function lightboxShow(url, photo) {
   // Warm the neighbours' renditions so stepping feels instant.
   if (hasNav) [lbPos - 1, lbPos + 1].forEach(i => {
     const n = photosCache.find(x => x.id === lbList[i]);
-    if (n) { const w = new Image(); w.src = thumbUrl(n.url, 2400); }
+    if (n) { const w = new Image(); w.src = thumbUrl(n.url, RENDITION.lightbox); }
   });
 }
 
