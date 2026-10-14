@@ -1302,6 +1302,14 @@ async function ghFetch(path, opts = {}) {
   return res.status === 204 ? null : res.json();
 }
 
+// Translate raw GitHub API errors into actionable status-toast messages.
+function friendlyUploadError(message) {
+  if (/bad credentials|401/i.test(message)) return "GitHub token invalid or expired — paste a new one in Config";
+  if (/not found|404/i.test(message)) return "Repo not reachable with this token — check owner/repo in Config and the token's repo access";
+  if (/rate limit/i.test(message)) return "GitHub rate limit hit — wait a few minutes and retry";
+  return message;
+}
+
 async function getFileSha(path) {
   try {
     const data = await ghFetch(`/contents/${path}`);
@@ -1572,7 +1580,14 @@ dz.addEventListener("drop", e => {
 async function uploadPhoto() {
   if (!batchQueue.length) { showStatus("Please select photos first.", "error"); return; }
   const file = batchQueue[0];
-  await doUploadFile(file);
+  try {
+    await doUploadFile(file);
+  } catch (err) {
+    console.error(`Failed: ${file.name}`, err);
+    showStatus(`Upload failed: ${friendlyUploadError(err.message)}`, "error");
+    return;
+  }
+  showStatus("Uploaded 1 photo", "success");
   removeFromQueue(0);
   loadAdminGallery();
 }
@@ -1626,7 +1641,7 @@ async function uploadAllPhotos() {
       progText.textContent = `Uploaded ${success} images but index write failed`;
       document.getElementById("btn-upload-all").disabled = false;
       document.getElementById("btn-upload-one").disabled = false;
-      showStatus(`Images uploaded but index write failed: ${err.message}`, "error");
+      showStatus(`Images uploaded but index write failed: ${friendlyUploadError(err.message)}`, "error");
       clearUpload();
       loadAdminGallery();
       return;
@@ -1640,7 +1655,8 @@ async function uploadAllPhotos() {
   setTimeout(() => progr.classList.add("hidden"), 1500);
   document.getElementById("btn-upload-all").disabled = false;
   document.getElementById("btn-upload-one").disabled = false;
-  showStatus(msg + (fail ? ` (${fail} failed)` : ""), fail ? "error" : "success");
+  const detail = errors.length ? ` — ${friendlyUploadError(errors[0].error)}` : "";
+  showStatus(msg + (fail ? ` (${fail} failed)${detail}` : ""), fail ? "error" : "success");
 
   clearUpload();
   loadAdminGallery();
