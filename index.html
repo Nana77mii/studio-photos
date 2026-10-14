@@ -197,13 +197,25 @@ body.fonts-ready { opacity:1; transition:opacity 0.15s; }
 .frame-caption .fc-place { font-family:var(--serif); font-weight:600; font-size:15px; line-height:1.05; letter-spacing:-0.01em; color:var(--silver); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .frame-caption .fc-meta  { font-family:var(--mono); font-size:9.5px; letter-spacing:.1em; color:var(--dust); white-space:nowrap; flex-shrink:0; text-transform:uppercase; }
 
-/* ── Contact sheet grid ── */
-.photo-grid { column-count:3; column-gap:1.25rem; width:100%; }
-.photo-grid .gallery-card { break-inside:avoid; margin-bottom:1.25rem; width:100%; }
-@media (max-width:1024px) { .photo-grid { column-count:2; } }
-@media (max-width:639px)  { .photo-grid { column-count:1; } }
-.photo-grid-single { width:100%; column-count:1; }
-.photo-grid-single .gallery-card { width:100%; }
+/* ── Contact sheet: one lead print per roll, then justified rows ──
+   Each row is a flex line; a card's flex-grow is its aspect ratio, so frames
+   in a row share the width in proportion to their shape and come out the same
+   height. A short last row gets an invisible spacer so it never stretches. */
+.photo-grid { display:flex; flex-direction:column; gap:1.25rem; width:100%; }
+.sheet-row { display:flex; gap:1.25rem; align-items:stretch; }
+.sheet-row > .gallery-card { flex:var(--r,1.5) 1 0; min-width:0; }
+.sheet-row > .row-spacer { flex:var(--s,1) 1 0; pointer-events:none; }
+.sheet-row.row-lead > .gallery-card { flex:1 1 100%; }
+.row-lead .gallery-img { width:100%; height:auto; max-height:76vh; object-fit:contain; background:var(--matboard); }
+.row-lead .frame-caption { padding-top:12px; padding-bottom:14px; }
+.row-lead .frame-caption .fc-place { font-size:clamp(17px,1.6vw,22px); }
+.row-lead .frame-caption .fc-meta  { font-size:10.5px; letter-spacing:.14em; }
+@media (max-width:639px) {
+  .sheet-row { flex-direction:column; }
+  .sheet-row > .gallery-card { flex:none; width:100%; }
+  .sheet-row > .row-spacer { display:none; }
+  .row-lead .gallery-img { max-height:none; }
+}
 
 /* ── Edit Mode ── */
 .edit-card-ctrl { position:absolute; inset-x:0; bottom:0; background:rgba(0,0,0,0.82); padding:6px 8px; display:flex; align-items:center; justify-content:space-between; gap:6px; z-index:20; }
@@ -237,8 +249,8 @@ body.fonts-ready { opacity:1; transition:opacity 0.15s; }
 .acc-icon { transition:transform 0.5s cubic-bezier(0.175,0.885,0.32,1.275); }
 .accordion-header.open .acc-icon { transform:rotate(45deg); }
 
-/* ── Detail page ── */
-#detail-img-wrap { max-height:85vh; }
+/* ── Detail page: the print first, full width; the log beneath ── */
+.detail-mount img { display:block; width:auto; max-width:100%; max-height:82vh; margin:0 auto; }
 
 /* ── Lightbox (fullscreen photo viewer) ── */
 #lightbox { position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.96); display:flex; align-items:center; justify-content:center; cursor:zoom-out; }
@@ -271,11 +283,10 @@ body.fonts-ready { opacity:1; transition:opacity 0.15s; }
 /* Each location = a roll; the whole block develops in as it enters the frame,
    giving a clear cinematic transition between one set of photos and the next */
 .reveal-roll {
-  opacity:0; filter:brightness(0.55) contrast(0.7); transform:translateY(46px) scale(0.984);
-  transition:opacity 1.15s cubic-bezier(.2,.8,.2,1), filter 1.6s cubic-bezier(.2,.8,.2,1), transform 1.15s cubic-bezier(.2,.8,.2,1);
-  will-change:opacity, transform, filter;
+  opacity:0; transform:translateY(36px);
+  transition:opacity 1s cubic-bezier(.16,1,.3,1), transform 1s cubic-bezier(.16,1,.3,1);
 }
-.reveal-roll.visible { opacity:1; filter:none; transform:none; }
+.reveal-roll.visible { opacity:1; transform:none; }
 
 /* Roll header wipes in: label + place lift, then the rule "draws" left→right like a film slate */
 .reveal-roll .roll-label,
@@ -290,21 +301,30 @@ body.fonts-ready { opacity:1; transition:opacity 0.15s; }
 .reveal-roll .roll-rule { transform:scaleX(0); transform-origin:left center; transition:transform 1.15s cubic-bezier(.16,1,.3,1) .34s; }
 .reveal-roll.visible .roll-rule { transform:scaleX(1); }
 
-/* Frames deal out one after another, like laying prints on the sheet */
-.reveal-roll .reveal-card {
-  opacity:0; transform:translateY(32px) scale(0.99);
-  transition:opacity .9s cubic-bezier(.2,.8,.2,1), transform .9s cubic-bezier(.2,.8,.2,1);
-  transition-delay:calc(var(--i, 0) * 0.055s + 0.30s);
+/* Each row of frames develops as it crosses into view: dark and low-contrast
+   first, then up to full density — one after another along the row. A one-shot
+   animation (not a transition) so the hover lift keeps its own timing afterwards. */
+@keyframes developPrint {
+  from { opacity:0; transform:translateY(56px); filter:brightness(.45) contrast(.75); }
+  60%  { opacity:1; }
+  to   { opacity:1; transform:none; filter:none; }
 }
-.reveal-roll.visible .reveal-card { opacity:1; transform:none; }
+@keyframes developLead {
+  from { opacity:0; transform:translateY(40px) scale(.975); filter:brightness(.45) contrast(.75); }
+  60%  { opacity:1; }
+  to   { opacity:1; transform:none; filter:none; }
+}
+.reveal-card:not(.visible) { opacity:0; }
+.reveal-card.visible { animation:developPrint 1.2s cubic-bezier(.16,1,.3,1) backwards; animation-delay:calc(var(--i,0) * .1s); }
+.row-lead .reveal-card.visible { animation-name:developLead; animation-duration:1.5s; }
 
 /* The year block is now just a scroll/music hook — the rolls carry the motion */
 .reveal-section {}
 @media (prefers-reduced-motion:reduce) {
   .reveal-year, .reveal-roll,
   .reveal-roll .roll-label, .reveal-roll .rh-place,
-  .reveal-roll .roll-rule, .reveal-roll .reveal-card {
-    opacity:1 !important; filter:none !important; transform:none !important; transition:none !important;
+  .reveal-roll .roll-rule, .reveal-card {
+    opacity:1 !important; filter:none !important; transform:none !important; transition:none !important; animation:none !important;
   }
 }
 
@@ -478,7 +498,7 @@ body.fonts-ready { opacity:1; transition:opacity 0.15s; }
 .log-row { display:flex; align-items:baseline; gap:10px; font-family:var(--mono); font-size:12px; padding:11px 0; border-bottom:1px solid var(--rule-soft); }
 .log-row .lr-key { color:var(--dust); text-transform:uppercase; letter-spacing:.12em; font-size:10px; white-space:nowrap; }
 .log-row .lr-dots { flex:1; border-bottom:1px dotted var(--dust-2); transform:translateY(-3px); min-width:16px; }
-.log-row .lr-val { color:var(--silver); text-align:right; max-width:62%; }
+.log-row .lr-val { color:var(--silver); text-align:right; max-width:70%; }
 .eyebrow { font-family:var(--mono); text-transform:uppercase; letter-spacing:.22em; font-size:10.5px; color:var(--dust); }
 
 /* Chronicles ledger */
@@ -737,7 +757,7 @@ body.fonts-ready { opacity:1; transition:opacity 0.15s; }
   <section id="timeline-section" class="py-16 md:py-28 bg-background">
     <div class="px-6 md:px-20 mb-12 md:mb-16 max-w-[1400px] mx-auto">
       <p class="eyebrow mb-4">The Sanctuary</p>
-      <h2 class="year-mast" style="font-size:clamp(1.9rem,5vw,3.2rem);max-width:20ch">Every roll, in the order it was shot.</h2>
+      <h2 class="year-mast" style="font-size:clamp(1.9rem,5vw,3.2rem);text-wrap:balance;max-width:30ch">Every roll,<br class="hidden md:inline"/> in the order it was shot.</h2>
     </div>
     <div id="timeline-container" class="px-6 md:px-20 overflow-x-hidden max-w-[1400px] mx-auto">
       <div class="readout py-20 text-left" id="timeline-loading" style="font-size:11px;letter-spacing:.2em;text-transform:uppercase">
@@ -751,9 +771,9 @@ body.fonts-ready { opacity:1; transition:opacity 0.15s; }
      VIEW 2: CHRONICLES
 ═══════════════════════════════════════════════════════════ -->
 <div id="view-chronicles" class="view pt-20 min-h-screen">
-  <div class="max-w-3xl mx-auto px-6 md:px-20 py-20 md:py-28">
+  <div class="max-w-5xl mx-auto px-6 md:px-20 py-20 md:py-28">
     <p class="eyebrow mb-4">Field Notes</p>
-    <h2 class="year-mast mb-16" style="font-size:clamp(2.6rem,7vw,4.5rem)">A ledger<br/>of places.</h2>
+    <h2 class="year-mast mb-16" style="font-size:clamp(2.4rem,6vw,4.2rem);text-wrap:balance">A ledger of places.</h2>
     <div id="chronicles-tree">
       <p class="readout" style="font-size:11px;letter-spacing:.2em;text-transform:uppercase">Reading field notes…</p>
     </div>
@@ -764,7 +784,7 @@ body.fonts-ready { opacity:1; transition:opacity 0.15s; }
      VIEW 3: PHOTO DETAIL
 ═══════════════════════════════════════════════════════════ -->
 <div id="view-detail" class="view pt-20 min-h-screen">
-  <div class="max-w-6xl mx-auto px-6 md:px-20 py-12">
+  <div class="max-w-[1400px] mx-auto px-6 md:px-20 py-12">
     <button onclick="goBack()" class="flex items-center gap-2 text-on-surface-variant hover:text-on-surface transition-colors mb-10 group" style="font-size:11px;letter-spacing:.16em;text-transform:uppercase">
       <span class="material-symbols-outlined text-base group-hover:-translate-x-1 transition-transform">arrow_back</span>
       Back to Sanctuary
@@ -1329,6 +1349,30 @@ function thumbUrl(url, w) {
   return `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=${w}&q=82&output=webp`;
 }
 
+/* ── EXIF readout formatting ── */
+// Exposure compensation comes off the camera in thirds (-0.6666…); show it
+// the way a light meter would: two decimals, explicit sign.
+function fmtEV(v) {
+  const n = Math.round(v * 100) / 100;
+  return (n > 0 ? "+" : "") + String(n);
+}
+// Only report a flash when it actually fired (bit 0 of the EXIF Flash field;
+// "Flash did not fire, compulsory mode" = 16 is truthy but means no flash).
+function flashFired(f) {
+  if (f == null) return false;
+  if (typeof f === "number") return (f & 1) === 1;
+  if (typeof f === "object") return !!f.fired;
+  return /fired/i.test(String(f)) && !/not fire|no flash|did not/i.test(String(f));
+}
+// Split a stored lens string "LENS | 35mm f/7.1 1/160s ISO 125 EV -1.33" into
+// its two readouts, tidying any raw floats left by older uploads.
+function lensReadout(lens) {
+  if (!lens) return { lens: "", exposure: "" };
+  const tidy = s => s.replace(/EV\s*([-+]?\d+(?:\.\d+)?)/g, (m, v) => "EV " + fmtEV(parseFloat(v))).replace(/\s{2,}/g, "  ").trim();
+  const [a, b] = lens.split("|").map(s => s.trim());
+  return b !== undefined ? { lens: tidy(a), exposure: tidy(b) } : { lens: "", exposure: tidy(a) };
+}
+
 // Translate raw GitHub API errors into actionable status-toast messages.
 function friendlyUploadError(message) {
   if (/bad credentials|401/i.test(message)) return "GitHub token invalid or expired — paste a new one in Config";
@@ -1495,11 +1539,8 @@ async function readBatchExif(file) {
       settings.push(et < 1 ? `1/${Math.round(1/et)}s` : `${et}s`);
     }
     if (exif.ISO) settings.push(`ISO ${exif.ISO}`);
-    if (exif.Flash !== undefined && exif.Flash !== null) settings.push(exif.Flash ? "Flash" : "No Flash");
-    if (exif.ExposureCompensation !== undefined && exif.ExposureCompensation !== 0) {
-      const ev = exif.ExposureCompensation;
-      settings.push(`EV ${ev > 0 ? "+" : ""}${ev}`);
-    }
+    if (flashFired(exif.Flash)) settings.push("Flash");
+    if (exif.ExposureCompensation) settings.push(`EV ${fmtEV(exif.ExposureCompensation)}`);
     if (settings.length) lensParts.push(settings.join("  "));
     entry.lens = lensParts.join(" | ");
 
@@ -1900,10 +1941,8 @@ async function exifFromUrl(url) {
   if (exif.FNumber) s.push(`f/${exif.FNumber}`);
   if (exif.ExposureTime) s.push(exif.ExposureTime < 1 ? `1/${Math.round(1 / exif.ExposureTime)}s` : `${exif.ExposureTime}s`);
   if (exif.ISO) s.push(`ISO ${exif.ISO}`);
-  if (exif.Flash !== undefined && exif.Flash !== null) s.push(exif.Flash ? "Flash" : "No Flash");
-  if (exif.ExposureCompensation !== undefined && exif.ExposureCompensation !== 0) {
-    s.push(`EV ${exif.ExposureCompensation > 0 ? "+" : ""}${exif.ExposureCompensation}`);
-  }
+  if (flashFired(exif.Flash)) s.push("Flash");
+  if (exif.ExposureCompensation) s.push(`EV ${fmtEV(exif.ExposureCompensation)}`);
   if (s.length) lensParts.push(s.join("  "));
   if (lensParts.length) out.lens = lensParts.join(" | ");
   if (exif.GPSLatitude !== undefined && exif.GPSLongitude !== undefined) {
@@ -2859,7 +2898,7 @@ function renderPhotoGrid(photos) {
     return Math.max(0.5, Math.min(2.4, r));     // clamp extremes (panorama / tall)
   };
 
-  const card = (p, idx) => {
+  const card = (p, idx, k = 0) => {
     const r = ratioOf(p);
     const frameNo = String((idx == null ? 0 : idx) + 1).padStart(2, "0"); // contact-sheet frame index
     const savedScale = (editModeActive ? editLayouts : layouts)[p.id]?.scale || 1;
@@ -2876,7 +2915,7 @@ function renderPhotoGrid(photos) {
       <div class="resize-h br" onmousedown="onResizeStart(event,'${p.id}')"></div>` : '';
     return `
       <div id="card-${p.id}" class="gallery-card cursor-pointer reveal-card ${editModeActive ? 'edit-active' : ''}"
-           style="--r:${r.toFixed(4)};--i:${idx == null ? 0 : idx};${scaleStyle}"
+           style="--r:${r.toFixed(4)};--i:${k};${scaleStyle}"
            onclick="${editModeActive ? '' : `showDetail('${p.id}')`}"
            ${editModeActive ? `draggable="true" ondragstart="onEditDragStart(event,'${p.id}')" ondragover="onEditDragOver(event)" ondragleave="onEditDragLeave(event)" ondrop="onEditDrop(event,'${p.id}')"` : ''}>
         <span class="frame-num">${frameNo}</span>
@@ -2889,16 +2928,33 @@ function renderPhotoGrid(photos) {
       </div>`;
   };
 
-  // A single photo is featured larger, sized to its orientation (no crop).
-  if (!editModeActive && sorted.length === 1) {
-    const r = ratioOf(sorted[0]);
-    const maxW = r >= 1 ? "46rem" : "26rem";
-    return `<div class="photo-grid-single" style="max-width:${maxW}">${card(sorted[0])}</div>`;
+  // Row plan, product-page style: frame 01 is the lead print and gets the full
+  // width (a portrait lead is paired with frame 02 instead, so it isn't a
+  // sliver); a two-frame roll is simply a 2-up. Everything after the lead runs
+  // in rows of three, broken into twos so no frame is ever left alone.
+  const n = sorted.length;
+  const rows = [];
+  let i = 0;
+  if (n === 1)                           { rows.push({ lead: true, items: [sorted[0]] }); i = 1; }
+  else if (n === 2)                      { rows.push({ items: sorted.slice(0, 2), sMin: 2.0 }); i = 2; }
+  else if (ratioOf(sorted[0]) >= 1.15)   { rows.push({ lead: true, items: [sorted[0]] }); i = 1; }
+  else                                   { rows.push({ items: sorted.slice(0, 2), sMin: 2.0 }); i = 2; }
+  let left = n - i;
+  while (left > 0) {
+    const take = left >= 5 ? 3 : left === 4 ? 2 : left;
+    rows.push({ items: sorted.slice(i, i + take), sMin: 2.4 });
+    i += take; left -= take;
   }
 
-  // Uniform row height everywhere: a period with more photos simply gets more
-  // rows (taller section), instead of shrinking the photos.
-  return `<div class="photo-grid" style="--row-h-d:20rem">${sorted.map((p,i) => card(p,i)).join("")}</div>`;
+  let g = 0;   // running frame number across the roll
+  const html = rows.map(row => {
+    const inner = row.items.map((p, k) => card(p, g++, k)).join("");
+    if (row.lead) return `<div class="sheet-row row-lead">${inner}</div>`;
+    const sumR = row.items.reduce((s, p) => s + ratioOf(p), 0);
+    const spacer = sumR < row.sMin ? `<div class="row-spacer" style="--s:${(row.sMin - sumR).toFixed(3)}"></div>` : "";
+    return `<div class="sheet-row">${inner}${spacer}</div>`;
+  }).join("");
+  return `<div class="photo-grid">${html}</div>`;
 }
 
 function toggleAccordion(id, header) {
@@ -3087,7 +3143,7 @@ function rerenderTimeline() {
           const rollNo = String(li + 1).padStart(2, "0");
           const cnt = lPhotos.length;
           return `
-          <div class="reveal-roll mb-14 md:mb-20">
+          <div class="reveal-roll mb-20 md:mb-32">
             <div class="accordion-header open cursor-pointer group mb-0" onclick="toggleAccordion('${accordionId}', this)">
               <p class="roll-label" style="margin-bottom:10px">Roll ${rollNo} &nbsp;·&nbsp; ${cnt} ${cnt > 1 ? "frames" : "frame"} &nbsp;·&nbsp; ${dateLabel}</p>
               <div class="roll-head">
@@ -3153,33 +3209,33 @@ function showDetail(id) {
     </div>`;
 
   const logRow = (k, v) => v ? `<div class="log-row"><span class="lr-key">${k}</span><span class="lr-dots"></span><span class="lr-val">${v}</span></div>` : "";
+  const ro = lensReadout(photo.lens);
+  // The print first, at full width like a product hero; the log sits beneath.
   document.getElementById("detail-content").innerHTML = `
     ${frameNav}
-    <div class="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-10 lg:gap-16 items-start">
-      <div id="detail-img-wrap" class="print-mount">
-        <img src="${thumbUrl(photo.url, 1600)}" data-full="${photo.url}" alt="${photo.location}" class="cursor-zoom-in img-develop" style="max-height:76vh;object-fit:contain;margin:0 auto" onload="this.classList.add('loaded')" onerror="this.onerror=null;this.src=this.dataset.full" onclick="openLightboxById('${photo.id}')"/>
-      </div>
-      <div class="lg:pt-2">
+    <div id="detail-img-wrap" class="print-mount detail-mount">
+      <img src="${thumbUrl(photo.url, 2400)}" data-full="${photo.url}" alt="${photo.location}" class="cursor-zoom-in img-develop" onload="this.classList.add('loaded')" onerror="this.onerror=null;this.src=this.dataset.full" onclick="openLightboxById('${photo.id}')"/>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-10 lg:gap-24 items-start mt-10 md:mt-14">
+      <div>
         <p class="eyebrow mb-4">${photo.category || "Frame"}${photo.year ? " · " + photo.year : ""}</p>
-        <h1 class="detail-place mb-6" style="font-size:clamp(2.4rem,6vw,4rem)">${photo.location}</h1>
-
-        ${photo.caption ? `<p class="mb-8" style="color:var(--silver-dim);font-size:1.15rem;line-height:1.55;max-width:42ch">${photo.caption}</p>` : ""}
-
-        <div class="log-panel mt-2 mb-9">
-          <p class="roll-label" style="padding:16px 0 6px">EXIF</p>
-          ${logRow("Camera", photo.camera)}
-          ${logRow("Lens", photo.lens)}
-          ${logRow("White Bal.", photo.whiteBalance)}
-          ${logRow("Date", photo.date)}
-          ${logRow("Location", photo.location)}
-          ${logRow("Category", photo.category)}
-          ${logRow("Shot by", photo.artist)}
-        </div>
-
-        <button onclick="openDownloadModal()" class="btn-ghost inline-flex items-center gap-2">
+        <h1 class="detail-place mb-6" style="font-size:clamp(2.4rem,5vw,4.4rem);text-wrap:balance">${photo.location}</h1>
+        ${photo.caption ? `<p class="mb-6" style="color:var(--silver-dim);font-size:1.15rem;line-height:1.55;max-width:46ch">${photo.caption}</p>` : ""}
+        <button onclick="openDownloadModal()" class="btn-ghost inline-flex items-center gap-2 mt-2">
           <span class="material-symbols-outlined text-base">download</span>
           Make a print
         </button>
+      </div>
+      <div class="log-panel">
+        <p class="roll-label" style="padding:16px 0 6px">Developer's log</p>
+        ${logRow("Camera", photo.camera)}
+        ${logRow("Lens", ro.lens)}
+        ${logRow("Exposure", ro.exposure)}
+        ${logRow("White Bal.", photo.whiteBalance)}
+        ${logRow("Date", photo.date)}
+        ${logRow("Location", photo.location)}
+        ${logRow("Category", photo.category)}
+        ${logRow("Shot by", photo.artist)}
       </div>
     </div>
   `;
@@ -3340,8 +3396,10 @@ function observeReveal() {
       }
     });
   }, {
+    // Reveal only once the element is a little way inside the viewport, so the
+    // develop animation actually plays on screen instead of below the fold.
     threshold: 0,
-    rootMargin: '0px 0px 300px 0px'
+    rootMargin: '0px 0px -12% 0px'
   });
 
   targets.forEach(el => revealObserver.observe(el));
