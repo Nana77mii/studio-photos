@@ -13,7 +13,8 @@
     "w": 6000,
     "h": 4000,
     "artist": "SHIBO",
-    "whiteBalance": "Auto"
+    "whiteBalance": "Auto",
+    "title": "Lapis Beneath the Eaves"
   },
   {
     "id": "mrad3ljbr49r",
@@ -29,7 +30,8 @@
     "w": 4848,
     "h": 3232,
     "artist": "SHIBO",
-    "whiteBalance": "Manual"
+    "whiteBalance": "Manual",
+    "title": "A Lotus Holds Light"
   },
   {
     "id": "mrab3mzrzsa2",
@@ -45,7 +47,8 @@
     "w": 6000,
     "h": 4000,
     "artist": "SHIBO",
-    "whiteBalance": "Auto"
+    "whiteBalance": "Auto",
+    "title": "Gold Over the Palace"
   },
   {
     "id": "mrab3mzpo7i9",
@@ -61,7 +64,8 @@
     "w": 6000,
     "h": 4000,
     "artist": "SHIBO",
-    "whiteBalance": "Auto"
+    "whiteBalance": "Auto",
+    "title": "Where Clouds Gather"
   },
   {
     "id": "mrab3mzovje5",
@@ -77,7 +81,8 @@
     "w": 4000,
     "h": 6000,
     "artist": "SHIBO",
-    "whiteBalance": "Auto"
+    "whiteBalance": "Auto",
+    "title": "The Cat Keeps Watch"
   },
   {
     "id": "mrab3mzrl95t",
@@ -93,7 +98,8 @@
     "w": 3826,
     "h": 5739,
     "artist": "SHIBO",
-    "whiteBalance": "Auto"
+    "whiteBalance": "Auto",
+    "title": "Towers at Last Light"
   },
   {
     "id": "mrab3mzs9avh",
@@ -109,7 +115,8 @@
     "w": 5936,
     "h": 3957,
     "artist": "SHIBO",
-    "whiteBalance": "Auto"
+    "whiteBalance": "Auto",
+    "title": "Dusk Over the Rooftops"
   },
   {
     "id": "mrab3mzskdle",
@@ -125,7 +132,8 @@
     "w": 4000,
     "h": 6000,
     "artist": "SHIBO",
-    "whiteBalance": "Auto"
+    "whiteBalance": "Auto",
+    "title": "A Cloud Catches Fire"
   },
   {
     "id": "mrab3mzs0zcv",
@@ -141,7 +149,8 @@
     "w": 5416,
     "h": 3611,
     "artist": "SHIBO",
-    "whiteBalance": "Auto"
+    "whiteBalance": "Auto",
+    "title": "The Dagoba at Dusk"
   },
   {
     "id": "mq0jjaynj1w0",
@@ -155,7 +164,8 @@
     "lens": "EF-S18-135mm f/3.5-5.6 IS USM | 18mm  f/3.5  1/160s  ISO 2000",
     "caption": "",
     "w": 6000,
-    "h": 4000
+    "h": 4000,
+    "title": "A Storm of Guitars"
   },
   {
     "id": "mq0jip80adsm",
@@ -169,7 +179,8 @@
     "lens": "EF-S18-135mm f/3.5-5.6 IS USM | 35mm  f/4.5  1/160s  ISO 100",
     "caption": "",
     "w": 6000,
-    "h": 4000
+    "h": 4000,
+    "title": "Metal Learning to Bend"
   },
   {
     "id": "mq0ji7m1kr8y",
@@ -183,7 +194,8 @@
     "lens": "EF-S18-135mm f/3.5-5.6 IS USM | 18mm  f/22  1/100s  ISO 800",
     "caption": "",
     "w": 4000,
-    "h": 6000
+    "h": 6000,
+    "title": "Needle Through Grey"
   },
   {
     "id": "mq0jhj10ie71",
@@ -197,7 +209,8 @@
     "lens": "EF-S18-135mm f/3.5-5.6 IS USM | 135mm  f/5.6  1/160s  ISO 400",
     "caption": "",
     "w": 6000,
-    "h": 4000
+    "h": 4000,
+    "title": "The Gull Waits"
   },
   {
     "id": "mq0jg7aerirf",
@@ -211,7 +224,8 @@
     "lens": "EF-S18-135mm f/3.5-5.6 IS USM | 89mm  f/5.6  1/200s  ISO 200",
     "caption": "",
     "w": 6000,
-    "h": 4000
+    "h": 4000,
+    "title": "Wheel at Blue Hour"
   },
   {
     "id": "mq0je6a65j3p",
@@ -225,7 +239,8 @@
     "lens": "EF-S18-135mm f/3.5-5.6 IS USM | 35mm  f/13  1/20s  ISO 100",
     "caption": "",
     "w": 6000,
-    "h": 4000
+    "h": 4000,
+    "title": "Steel Over Red Stone"
   },
   {
     "id": "mq0jdj90fk7f",
@@ -239,7 +254,8 @@
     "lens": "EF-S18-135mm f/3.5-5.6 IS USM | 18mm  f/5  1/80s  ISO 100",
     "caption": "",
     "w": 6000,
-    "h": 4000
+    "h": 4000,
+    "title": "The River Turns Back"
   },
   {
     "id": "mq0jclhbr441",
@@ -253,7 +269,8 @@
     "lens": "EF-S18-135mm f/3.5-5.6 IS USM | 35mm  f/8  1/80s  ISO 100",
     "caption": "",
     "w": 6000,
-    "h": 4000
+    "h": 4000,
+    "title": "The Canyon, Half Seen"
   },
   {
     "id": "mq0jb0pwwdx4",
@@ -267,7 +284,8 @@
     "lens": "EF-S18-135mm f/3.5-5.6 IS USM | 110mm  f/5.6  1/30s  ISO 400",
     "caption": "",
     "w": 6000,
-    "h": 4000
+    "h": 4000,
+    "title": "Flamingo in Neon"
   },
   {
     "id": "mq0iucsx5beb",
@@ -281,7 +299,8 @@
     "lens": "EF-S18-135mm f/3.5-5.6 IS USM | 35mm  f/4.5  1/125s  ISO 800",
     "caption": "",
     "w": 6000,
-    "h": 4000
+    "h": 4000,
+    "title": "Paris Through the Palms"
   },
   {
     "id": "mq0itwjhr2jv",
@@ -295,7 +314,8 @@
     "lens": "EF-S18-135mm f/3.5-5.6 IS USM | 24mm  f/4  1/125s  ISO 800",
     "caption": "",
     "w": 6000,
-    "h": 4000
+    "h": 4000,
+    "title": "Balloon Over the Strip"
   },
   {
     "id": "mq0it3lnlqks",
@@ -309,7 +329,8 @@
     "lens": "EF-S18-135mm f/3.5-5.6 IS USM | 22mm  f/3.5  1/160s  ISO 400",
     "caption": "",
     "w": 6000,
-    "h": 4000
+    "h": 4000,
+    "title": "Cartzilla After Dark"
   },
   {
     "id": "mpzauy04u7ue",
@@ -323,7 +344,8 @@
     "lens": "EF-S18-135mm f/3.5-5.6 IS USM | 50mm  f/5  1/100s  ISO 100",
     "caption": "",
     "w": 6000,
-    "h": 4000
+    "h": 4000,
+    "title": "Red Rock, Last Sun"
   },
   {
     "id": "mpzahcllo66h",
@@ -337,7 +359,8 @@
     "lens": "EF-S18-135mm f/3.5-5.6 IS USM | 24mm  f/16  1/30s  ISO 100",
     "caption": "",
     "w": 4000,
-    "h": 6000
+    "h": 6000,
+    "title": "Storm Light on Sedona"
   },
   {
     "id": "mpza1n5whkv0",
@@ -351,7 +374,8 @@
     "lens": "EF-S18-135mm f/3.5-5.6 IS USM | 18mm  f/3.5  1/160s  ISO 800",
     "caption": "",
     "w": 4000,
-    "h": 6000
+    "h": 6000,
+    "title": "Under the Red Star"
   },
   {
     "id": "mpza1386xrc7",
@@ -365,7 +389,8 @@
     "lens": "EF-S18-135mm f/3.5-5.6 IS USM | 24mm  f/4  1/60s  ISO 1000",
     "caption": "",
     "w": 6000,
-    "h": 4000
+    "h": 4000,
+    "title": "The Charge Stands Still"
   },
   {
     "id": "mpza05jzzgd6",
@@ -379,7 +404,8 @@
     "lens": "EF-S18-135mm f/3.5-5.6 IS USM | 85mm  f/5.6  1/60s  ISO 500",
     "caption": "",
     "w": 5546,
-    "h": 3697
+    "h": 3697,
+    "title": "Silver Wings, Suspended"
   },
   {
     "id": "mpz9zlxcjw1b",
@@ -393,7 +419,8 @@
     "lens": "EF-S18-135mm f/3.5-5.6 IS USM | 27mm  f/4  1/160s  ISO 800",
     "caption": "",
     "w": 6000,
-    "h": 4000
+    "h": 4000,
+    "title": "A Jet Learns Stillness"
   },
   {
     "id": "mpz9yqgzexlk",
@@ -407,7 +434,8 @@
     "lens": "EF-S18-135mm f/3.5-5.6 IS USM | 29mm  f/4  1/160s  ISO 800",
     "caption": "",
     "w": 6000,
-    "h": 4000
+    "h": 4000,
+    "title": "Grounded in Orange"
   },
   {
     "id": "mpz9yckyc54q",
@@ -421,7 +449,8 @@
     "lens": "EF-S18-135mm f/3.5-5.6 IS USM | 18mm  f/3.5  1/160s  ISO 800",
     "caption": "",
     "w": 3024,
-    "h": 4536
+    "h": 4536,
+    "title": "A Fin Among Lights"
   },
   {
     "id": "mpz9mxvan6nn",
@@ -435,7 +464,8 @@
     "lens": "EF-S18-135mm f/3.5-5.6 IS USM | 42mm  f/4.5  1/160s  ISO 800",
     "caption": "",
     "w": 6000,
-    "h": 4000
+    "h": 4000,
+    "title": "Glass Nose, Red Numbers"
   },
   {
     "id": "mpz97485auny",
@@ -449,6 +479,7 @@
     "lens": "EF-S18-135mm f/3.5-5.6 IS USM | 42mm  f/16  1/15s  ISO 100",
     "caption": "",
     "w": 6000,
-    "h": 4000
+    "h": 4000,
+    "title": "Golden Hour, Sedona"
   }
 ]
