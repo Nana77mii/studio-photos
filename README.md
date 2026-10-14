@@ -51,6 +51,7 @@ An array of frame objects — the gallery manifest:
   "category": "STREET",
   "camera": "CANON EOS 80D",
   "lens": "EF-S18-135mm f/3.5-5.6 IS USM | 35mm f/7.1 1/160s ISO 125 EV -1.33",
+  "title": "Cat on the palace wall",
   "caption": "", "w": 6000, "h": 4000,
   "artist": "SHIBO", "whiteBalance": "Auto"
 }
