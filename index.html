@@ -17,6 +17,9 @@
 <meta name="twitter:card" content="summary_large_image"/>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- The hero is the LCP element: pre-rendered at 2400px WebP (~116 KB) and started
+     before the JS boot, so the first paint never waits on a 10.5 MB original. -->
+<link rel="preload" as="image" href="photos/opt/hero-2400.webp" fetchpriority="high">
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
 <!-- Darkroom type system: an expressive high-contrast serif for prints + a technical mono for the field-log readouts -->
@@ -510,9 +513,11 @@ body.fonts-ready { opacity:1; transition:opacity 0.15s; }
 @media (min-width:768px){ .print-mount { padding:30px; } }
 .print-mount img { display:block; width:100%; }
 /* Detail view: the print keeps its own proportions — never stretched to the
-   mount. Sized by height first (82vh), then by the column width, centred on
-   the mat. Declared after .print-mount img so it wins the width. */
-.print-mount.detail-mount img { width:auto; height:auto; max-width:100%; max-height:82vh; object-fit:contain; margin:0 auto; }
+   mount. Height is budgeted against the *whole* chrome above and below it, not
+   just the viewport: 80px fixed nav offset + ~46px frame nav + 60px mat padding
+   + a little breathing room. 82vh is the fallback where svh is unsupported; it
+   is what used to push landscape titles below the fold on a 900px-tall window. */
+.print-mount.detail-mount img { width:auto; height:auto; max-width:100%; max-height:82vh; max-height:calc(100svh - 240px); object-fit:contain; margin:0 auto; }
 .detail-place { font-family:var(--serif) !important; font-weight:700 !important; color:var(--silver); line-height:0.98; letter-spacing:-0.02em; }
 .log-panel { border-top:1px solid var(--rule); }
 .log-row { display:flex; align-items:baseline; gap:10px; font-family:var(--mono); font-size:12px; padding:11px 0; border-bottom:1px solid var(--rule-soft); }
@@ -1397,17 +1402,36 @@ async function ghFetch(path, opts = {}) {
 }
 
 /* ── Image renditions ──
-   Originals on raw.githubusercontent run 8–15 MB each; browsing surfaces load
-   sized JPEG renditions through the wsrv.nl image proxy instead. Quality over
-   weight: a lead print is 3000px/q92 (~2 MB), a sheet frame 2000px/q90 (~1 MB),
-   so nothing is upscaled on a retina desktop. The lightbox still upgrades to the
-   original. Every <img> keeps an onerror fallback to the original URL so a
-   proxy outage never blanks the site. */
-const RENDITION = { lead: 3000, frame: 2000, detail: 3000, lightbox: 3000, hero: 2400, admin: 600 };
+   Every frame now ships three statically generated WebP derivatives
+   (photos/opt/<id>-{thumb,frame,full}.webp) recorded on the row as `src`.
+   The proxy is gone from the hot path: a sheet frame is ~100 KB, a detail
+   print ~400 KB, and neither needs a cold round-trip through wsrv.nl.
+   Rows without `src` (older frames) still fall back to the proxy, and every
+   <img> keeps an onerror fallback to `url`, so nothing can blank the site. */
+const RENDITION = { lead: 3000, frame: 1600, detail: 3000, lightbox: 3000, hero: 2400, admin: 600 };
 function thumbUrl(url, w, q) {
   if (!/\.(jpe?g|png|webp|gif|avif)(\?|$)/i.test(url)) return url;
   const quality = q ?? (w >= 3000 ? 92 : 90);
   return `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=${w}&q=${quality}&output=jpg`;
+}
+
+/* Prefer the static rendition; fall back to the proxy for legacy rows. */
+function tierSrc(photo, tier) {
+  const rel = photo && photo.src && photo.src[tier];
+  if (rel) return new URL(rel, document.baseURI).href;
+  return thumbUrl(photo.url, RENDITION[tier] || RENDITION.frame);
+}
+
+/* Real pixel width of a tier, so srcset descriptors are honest rather than nominal. */
+function tierWidth(photo, edge) {
+  const w = Number(photo && photo.w) || 3;
+  const h = Number(photo && photo.h) || 2;
+  return Math.max(1, Math.round(w * Math.min(1, edge / Math.max(w, h))));
+}
+
+function tierSrcset(photo, tiers = ["thumb", "frame", "full"]) {
+  const edges = { thumb: 600, frame: 1600, full: 3000 };
+  return tiers.map(t => `${tierSrc(photo, t)} ${tierWidth(photo, edges[t])}w`).join(", ");
 }
 
 /* ── EXIF readout formatting ── */
@@ -1756,11 +1780,11 @@ async function uploadAllPhotos() {
     progBar.style.width = `${Math.round((completed/total)*100)}%`;
   }
 
-  // Step 1 — upload all images concurrently
+  // Step 1 — build every rendition locally (no network, no commits yet)
+  const prepared = [];
   const tasks = batchQueue.map(async (file) => {
     try {
-      const record = await uploadPhotoFile(file);
-      records.push(record);
+      prepared.push(await preparePhoto(file));
       success++;
     } catch (err) {
       fail++;
@@ -1771,7 +1795,24 @@ async function uploadAllPhotos() {
   });
   await Promise.all(tasks);
 
-  // Step 2 — write ALL records to index in ONE atomic operation
+  // Step 2 — push the whole batch in ONE commit (one Pages build, not one per file)
+  if (prepared.length > 0) {
+    progText.textContent = `Uploading ${prepared.length} frame(s) in one commit…`;
+    try {
+      await commitFiles(
+        prepared.flatMap(p => p.files),
+        `Add ${prepared.length} photo${prepared.length > 1 ? "s" : ""}`
+      );
+      records.push(...prepared.map(p => p.record));
+    } catch (err) {
+      fail += prepared.length;
+      success -= prepared.length;
+      errors.push({ file: "batch", error: err.message });
+      console.error("Batch commit failed:", err);
+    }
+  }
+
+  // Step 3 — write ALL records to index in ONE atomic operation
   if (records.length > 0) {
     progText.textContent = "Writing index…";
     try {
@@ -1802,9 +1843,101 @@ async function uploadAllPhotos() {
   loadAdminGallery();
 }
 
-// Core upload — pushes image to GitHub, returns record (no index write)
-async function uploadPhotoFile(file) {
-  const cfg = getConfig();
+/* ── Client-side rendition building ──────────────────────────
+   The darkroom uploads derivatives, not negatives: three WebP files per frame
+   (~1.2 MB total) instead of one 8–19 MB JPEG. That is what keeps the repo from
+   growing by a gigabyte a year, and it is where the response time came from too —
+   a sheet frame drops from a proxied 1 MB to a static ~100 KB.
+   Set UPLOAD_NEGATIVE to true to also archive the original master. */
+const UPLOAD_NEGATIVE = false;
+const TIERS = [["thumb", 600], ["frame", 1600], ["full", 3000]];
+
+async function encodeTier(bitmap, longEdge, quality = 0.82) {
+  const scale = Math.min(1, longEdge / Math.max(bitmap.width, bitmap.height));
+  const w = Math.max(1, Math.round(bitmap.width * scale));
+  const h = Math.max(1, Math.round(bitmap.height * scale));
+  // OffscreenCanvas where available (fast, off the main thread); canvas fallback for older Safari.
+  if (typeof OffscreenCanvas !== "undefined") {
+    const canvas = new OffscreenCanvas(w, h);
+    const ctx = canvas.getContext("2d");
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(bitmap, 0, 0, w, h);
+    return await canvas.convertToBlob({ type: "image/webp", quality });
+  }
+  const canvas = document.createElement("canvas");
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(bitmap, 0, 0, w, h);
+  const blob = await new Promise(res => canvas.toBlob(res, "image/webp", quality));
+  if (!blob) throw new Error("this browser cannot encode WebP");
+  return blob;
+}
+
+/** Decode once, emit every tier. Returns [{path, b64, w, h}]. */
+async function buildRenditions(file, id) {
+  const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+  const out = [];
+  try {
+    for (const [tier, edge] of TIERS) {
+      const blob = await encodeTier(bitmap, edge);
+      out.push({ tier, path: `photos/opt/${id}-${tier}.webp`, b64: await blobToBase64(blob) });
+    }
+    return { files: out, w: bitmap.width, h: bitmap.height };
+  } finally {
+    bitmap.close?.();
+  }
+}
+
+function blobToBase64(blob) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(String(r.result).split(",")[1]);
+    r.onerror = rej;
+    r.readAsDataURL(blob);
+  });
+}
+
+/* ── One commit for many files (Git Data API) ────────────────
+   The Contents API commits once per file, and every commit triggers a Pages
+   build, so a ten-photo batch used to cost twenty builds. Blobs + tree + commit
+   + ref is one build for the whole batch. Falls back to per-file commits if the
+   Data API path is unavailable, so a failure never loses the upload. */
+async function commitFiles(files, message) {
+  const { branch } = getConfig();
+  try {
+    const ref = await ghFetch(`/git/ref/heads/${branch}`);
+    const headSha = ref.object.sha;
+    const head = await ghFetch(`/git/commits/${headSha}`);
+    const blobs = await Promise.all(files.map(async f => {
+      const b = await ghFetch("/git/blobs", {
+        method: "POST",
+        body: JSON.stringify({ content: f.b64, encoding: "base64" })
+      });
+      return { path: f.path, mode: "100644", type: "blob", sha: b.sha };
+    }));
+    const tree = await ghFetch("/git/trees", {
+      method: "POST",
+      body: JSON.stringify({ base_tree: head.tree.sha, tree: blobs })
+    });
+    const commit = await ghFetch("/git/commits", {
+      method: "POST",
+      body: JSON.stringify({ message, tree: tree.sha, parents: [headSha] })
+    });
+    await ghFetch(`/git/refs/heads/${branch}`, {
+      method: "PATCH",
+      body: JSON.stringify({ sha: commit.sha, force: false })
+    });
+    return commit.sha;
+  } catch (err) {
+    console.warn("Git Data API unavailable, falling back to per-file commits:", err);
+    for (const f of files) await putFile(f.path, f.b64, message);
+    return null;
+  }
+}
+
+// Build everything a frame needs, without touching the network.
+async function preparePhoto(file) {
   const exif = batchExifCache[file.name] || {};
 
   const location = document.getElementById("meta-location").value.trim() || "Unknown";
@@ -1816,23 +1949,33 @@ async function uploadPhotoFile(file) {
   const title    = (batchTitles[file.name] || "").trim();
 
   const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  const ext = file.name.split(".").pop().toLowerCase();
-  const fileName = `photos/${id}.${ext}`;
+  const { files, w, h } = await buildRenditions(file, id);
 
-  // Read file + dimensions in parallel before uploading
-  const [b64, dim] = await Promise.all([fileToBase64(file), imageDimensions(file)]);
-
-  await putFile(fileName, b64, `Add photo: ${location} ${date}`);
-  const rawUrl = `https://raw.githubusercontent.com/${cfg.owner}/${cfg.repo}/${cfg.branch}/${fileName}`;
+  if (UPLOAD_NEGATIVE) {
+    const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+    files.push({ tier: "negative", path: `photos/${id}.${ext}`, b64: await fileToBase64(file) });
+  }
 
   const year = date.slice(0,4);
   const month = date.slice(5,7);
-  const record = { id, url: rawUrl, location, date, year, month, category, camera, lens, caption, w: dim.w, h: dim.h };
+  const record = {
+    id,
+    url: `https://raw.githubusercontent.com/${getConfig().owner}/${getConfig().repo}/${getConfig().branch}/photos/opt/${id}-full.webp`,
+    src: { thumb: `photos/opt/${id}-thumb.webp`, frame: `photos/opt/${id}-frame.webp`, full: `photos/opt/${id}-full.webp` },
+    location, date, year, month, category, camera, lens, caption, w, h
+  };
   if (title) record.title = title;
   if (exif.gps) record.gps = exif.gps;
   if (exif.artist) record.artist = exif.artist;
   if (exif.copyright) record.copyright = exif.copyright;
   if (exif.whiteBalance) record.whiteBalance = exif.whiteBalance;
+  return { record, files };
+}
+
+// Core upload — pushes one frame's renditions in a single commit, returns record
+async function uploadPhotoFile(file) {
+  const { record, files } = await preparePhoto(file);
+  await commitFiles(files, `Add photo: ${record.location} ${record.date}`);
   return record;
 }
 
@@ -1917,7 +2060,7 @@ async function loadAdminGallery() {
     gallery.innerHTML = sorted.map(p => `
       <div class="relative group">
         <div class="bulk-checkbox" data-id="${p.id}" onclick="event.stopPropagation();togglePhotoSelect('${p.id}')"></div>
-        <img src="${thumbUrl(p.url, RENDITION.admin)}" data-full="${p.url}" class="photo-thumb w-full ghost-border" loading="lazy" decoding="async" alt="${p.location}" onerror="this.onerror=null;this.src=this.dataset.full"/>
+        <img src="${tierSrc(p, 'thumb')}" data-full="${p.url}" class="photo-thumb w-full ghost-border" loading="lazy" decoding="async" alt="${p.location}" onerror="this.onerror=null;this.src=this.dataset.full"/>
         <div class="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 px-2">
           <p class="text-xs text-white text-center leading-tight">${p.title || p.location}<br/><span class="text-white/50">${p.date}</span></p>
           <div class="flex items-center gap-3">
@@ -2416,7 +2559,15 @@ function applySettings(s) {
 
   if (s.heroBgUrl) {
     const bg = document.getElementById("hero-bg");
-    if (bg) { bg.dataset.full = s.heroBgUrl; bg.src = thumbUrl(s.heroBgUrl, RENDITION.hero); }
+    // A relative hero URL means it was pre-rendered locally (photos/opt/hero-2400.webp),
+    // so the first paint costs ~116 KB instead of a 10.5 MB original behind the proxy.
+    // Absolute URLs keep the old proxied behaviour, so existing settings still work.
+    if (bg) {
+      bg.dataset.full = s.heroBgUrl;
+      bg.src = /^https?:/i.test(s.heroBgUrl)
+        ? thumbUrl(s.heroBgUrl, RENDITION.hero)
+        : new URL(s.heroBgUrl, document.baseURI).href;
+    }
     const thumb = document.getElementById("hero-bg-thumb");
     const empty = document.getElementById("hero-bg-thumb-empty");
     if (thumb) { thumb.src = s.heroBgUrl; thumb.style.display = ""; }
@@ -3003,7 +3154,10 @@ function renderPhotoGrid(photos) {
            onclick="${editModeActive ? '' : `showDetail('${p.id}')`}"
            ${editModeActive ? `draggable="true" ondragstart="onEditDragStart(event,'${p.id}')" ondragover="onEditDragOver(event)" ondragleave="onEditDragLeave(event)" ondrop="onEditDrop(event,'${p.id}')"` : ''}>
         <span class="frame-num">${frameNo}</span>
-        <img src="${thumbUrl(p.url, w)}" data-full="${p.url}" alt="${p.title || p.location}" class="gallery-img img-develop" loading="lazy" decoding="async" onload="this.classList.add('loaded')" onerror="this.onerror=null;this.src=this.dataset.full"/>
+        <img src="${tierSrc(p, w >= 3000 ? 'full' : 'frame')}"
+             srcset="${tierSrcset(p)}"
+             sizes="(max-width: 767px) 92vw, (max-width: 1279px) 46vw, 420px"
+             data-full="${p.url}" alt="${p.title || p.location}" class="gallery-img img-develop" loading="lazy" decoding="async" onload="this.classList.add('loaded')" onerror="this.onerror=null;this.src=this.dataset.full"/>
         <div class="frame-caption">
           <span class="fc-place">${p.title || p.location}</span>
           <span class="fc-meta photo-caption">${p.category || ""}${p.date ? " · " + p.date : ""}</span>
@@ -3339,35 +3493,38 @@ function showDetail(id) {
   // The print on the left with its title beneath; the developer's log on the right.
   document.getElementById("detail-content").innerHTML = `
     ${frameNav}
-    <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-10 lg:gap-12 items-start">
+    <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-10 lg:gap-12 items-start">
       <div>
         <div id="detail-img-wrap" class="print-mount detail-mount">
-          <img src="${thumbUrl(photo.url, RENDITION.detail)}" data-full="${photo.url}" alt="${photo.location}" class="cursor-zoom-in img-develop" onload="this.classList.add('loaded')" onerror="this.onerror=null;this.src=this.dataset.full" onclick="openLightboxById('${photo.id}')"/>
-        </div>
-        <div class="mt-8 md:mt-10">
-          <p class="eyebrow mb-4">${photo.category || "Frame"}${photo.year ? " · " + photo.year : ""}</p>
-          <h1 class="detail-place mb-5" style="font-size:clamp(2.2rem,4.2vw,3.6rem);text-wrap:balance">${photo.title || photo.location}</h1>
-          ${photo.title ? `<p class="roll-label mb-5" style="margin-top:-6px">${photo.location}</p>` : ""}
-          ${photo.caption ? `<p class="mb-6" style="color:var(--silver-dim);font-size:1.15rem;line-height:1.55;max-width:52ch">${photo.caption}</p>` : ""}
-          <div class="flex flex-wrap items-center gap-x-8 gap-y-3">
-            <button onclick="openDownloadModal()" class="btn-ghost inline-flex items-center gap-2 mt-2">
-              <span class="material-symbols-outlined text-base">download</span>
-              Make a print
-            </button>
-            ${leadBtn}
-          </div>
+          <img src="${tierSrc(photo, 'full')}"
+               srcset="${tierSrcset(photo, ['frame', 'full'])}"
+               sizes="(max-width: 1023px) 92vw, min(58vw, 1100px)"
+               data-full="${photo.url}" alt="${photo.location}" class="cursor-zoom-in img-develop" onload="this.classList.add('loaded')" onerror="this.onerror=null;this.src=this.dataset.full" onclick="openLightboxById('${photo.id}')"/>
         </div>
       </div>
-      <div class="log-panel lg:sticky lg:top-24">
-        <p class="roll-label" style="padding:16px 0 6px">Developer's log</p>
-        ${logRow("Camera", photo.camera)}
-        ${logRow("Lens", ro.lens)}
-        ${logRow("Exposure", ro.exposure)}
-        ${logRow("White Bal.", photo.whiteBalance)}
-        ${logRow("Date", photo.date)}
-        ${logRow("Location", photo.location)}
-        ${logRow("Category", photo.category)}
-        ${logRow("Shot by", photo.artist)}
+      <div class="lg:sticky lg:top-24">
+        <p class="eyebrow mb-4">${photo.category || "Frame"}${photo.year ? " · " + photo.year : ""}</p>
+        <h1 class="detail-place mb-5" style="font-size:clamp(1.75rem,2.4vw,2.4rem);text-wrap:balance">${photo.title || photo.location}</h1>
+        ${photo.title ? `<p class="roll-label mb-5" style="margin-top:-6px">${photo.location}</p>` : ""}
+        ${photo.caption ? `<p class="mb-6" style="color:var(--silver-dim);font-size:1.05rem;line-height:1.55">${photo.caption}</p>` : ""}
+        <div class="flex flex-wrap items-center gap-x-6 gap-y-3 mb-8">
+          <button onclick="openDownloadModal()" class="btn-ghost inline-flex items-center gap-2">
+            <span class="material-symbols-outlined text-base">download</span>
+            Make a print
+          </button>
+          ${leadBtn}
+        </div>
+        <div class="log-panel">
+          <p class="roll-label" style="padding:16px 0 6px">Developer's log</p>
+          ${logRow("Camera", photo.camera)}
+          ${logRow("Lens", ro.lens)}
+          ${logRow("Exposure", ro.exposure)}
+          ${logRow("White Bal.", photo.whiteBalance)}
+          ${logRow("Date", photo.date)}
+          ${logRow("Location", photo.location)}
+          ${logRow("Category", photo.category)}
+          ${logRow("Shot by", photo.artist)}
+        </div>
       </div>
     </div>
   `;
@@ -3615,16 +3772,13 @@ function openLightboxById(id) {
 function lightboxShow(url, photo) {
   const lb = document.getElementById("lightbox");
   const img = document.getElementById("lightbox-img");
-  const seq = ++lbLoadSeq;
-  // Show the 3000px rendition at once (same URL the sheet/detail already
-  // cached); swap in the original when it arrives so wheel/pinch zoom stays sharp.
-  const fast = thumbUrl(url, RENDITION.lightbox);
-  img.src = fast;
-  if (fast !== url) {
-    const full = new Image();
-    full.onload = () => { if (seq === lbLoadSeq) img.src = url; };
-    full.src = url;
-  }
+  // Show the static 3000px rendition immediately — it is already in the browser
+  // cache from the detail view, and it costs ~400 KB instead of a proxied  2 MB.
+  // The 15–19 MB original is no longer fetched just to open a photo; it is
+  // requested lazily only once the viewer actually zooms past 1.6×.
+  img.src = photo ? tierSrc(photo, "full") : thumbUrl(url, RENDITION.lightbox);
+  img.dataset.original = url;
+  img.dataset.originalLoaded = "";
   const hasNav = lbPos >= 0 && lbList.length > 1;
   document.getElementById("lb-prev").style.display = hasNav ? "" : "none";
   document.getElementById("lb-next").style.display = hasNav ? "" : "none";
@@ -3638,7 +3792,7 @@ function lightboxShow(url, photo) {
   // Warm the neighbours' renditions so stepping feels instant.
   if (hasNav) [lbPos - 1, lbPos + 1].forEach(i => {
     const n = photosCache.find(x => x.id === lbList[i]);
-    if (n) { const w = new Image(); w.src = thumbUrl(n.url, RENDITION.lightbox); }
+    if (n) { const w = new Image(); w.src = tierSrc(n, "full"); }
   });
 }
 
@@ -3658,6 +3812,19 @@ function closeLightbox() {
 function applyLbTransform() {
   const img = document.getElementById("lightbox-img");
   img.style.transform = `scale(${lbState.scale}) translate(${lbState.panX}px,${lbState.panY}px)`;
+  // Only now — when someone actually zooms in — is the multi-megabyte original
+  // worth fetching. At 1× the 3000px rendition is already sharper than most screens.
+  if (lbState.scale > 1.6) upgradeLightboxImage();
+}
+
+function upgradeLightboxImage() {
+  const img = document.getElementById("lightbox-img");
+  const original = img.dataset.original;
+  if (!original || img.dataset.originalLoaded === "1") return;
+  img.dataset.originalLoaded = "1";
+  const probe = new Image();
+  probe.onload = () => { if (img.dataset.original === original) img.src = original; };
+  probe.src = original;
 }
 
 // Wheel zoom

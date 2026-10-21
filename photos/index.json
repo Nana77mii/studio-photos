@@ -13,7 +13,12 @@
     "w": 6000,
     "h": 4000,
     "artist": "SHIBO",
-    "whiteBalance": "Auto"
+    "whiteBalance": "Auto",
+    "src": {
+      "thumb": "photos/opt/mv9r971lt8ev-thumb.webp",
+      "frame": "photos/opt/mv9r971lt8ev-frame.webp",
+      "full": "photos/opt/mv9r971lt8ev-full.webp"
+    }
   },
   {
     "id": "mv9r971ll9i0",
@@ -29,7 +34,12 @@
     "w": 3506,
     "h": 5259,
     "artist": "SHIBO",
-    "whiteBalance": "Auto"
+    "whiteBalance": "Auto",
+    "src": {
+      "thumb": "photos/opt/mv9r971ll9i0-thumb.webp",
+      "frame": "photos/opt/mv9r971ll9i0-frame.webp",
+      "full": "photos/opt/mv9r971ll9i0-full.webp"
+    }
   },
   {
     "id": "mrad3lj9te64",
@@ -46,7 +56,12 @@
     "h": 4000,
     "artist": "SHIBO",
     "whiteBalance": "Auto",
-    "title": "檐下青金"
+    "title": "檐下青金",
+    "src": {
+      "thumb": "photos/opt/mrad3lj9te64-thumb.webp",
+      "frame": "photos/opt/mrad3lj9te64-frame.webp",
+      "full": "photos/opt/mrad3lj9te64-full.webp"
+    }
   },
   {
     "id": "mrad3ljbr49r",
@@ -63,7 +78,12 @@
     "h": 3232,
     "artist": "SHIBO",
     "whiteBalance": "Manual",
-    "title": "荷心藏光"
+    "title": "荷心藏光",
+    "src": {
+      "thumb": "photos/opt/mrad3ljbr49r-thumb.webp",
+      "frame": "photos/opt/mrad3ljbr49r-frame.webp",
+      "full": "photos/opt/mrad3ljbr49r-full.webp"
+    }
   },
   {
     "id": "mrab3mzrzsa2",
@@ -80,7 +100,12 @@
     "h": 4000,
     "artist": "SHIBO",
     "whiteBalance": "Auto",
-    "title": "金顶余晖"
+    "title": "金顶余晖",
+    "src": {
+      "thumb": "photos/opt/mrab3mzrzsa2-thumb.webp",
+      "frame": "photos/opt/mrab3mzrzsa2-frame.webp",
+      "full": "photos/opt/mrab3mzrzsa2-full.webp"
+    }
   },
   {
     "id": "mrab3mzpo7i9",
@@ -97,7 +122,12 @@
     "h": 4000,
     "artist": "SHIBO",
     "whiteBalance": "Auto",
-    "title": "云从此堆"
+    "title": "云从此堆",
+    "src": {
+      "thumb": "photos/opt/mrab3mzpo7i9-thumb.webp",
+      "frame": "photos/opt/mrab3mzpo7i9-frame.webp",
+      "full": "photos/opt/mrab3mzpo7i9-full.webp"
+    }
   },
   {
     "id": "mrab3mzovje5",
@@ -114,7 +144,12 @@
     "h": 6000,
     "artist": "SHIBO",
     "whiteBalance": "Auto",
-    "title": "一猫守望"
+    "title": "一猫守望",
+    "src": {
+      "thumb": "photos/opt/mrab3mzovje5-thumb.webp",
+      "frame": "photos/opt/mrab3mzovje5-frame.webp",
+      "full": "photos/opt/mrab3mzovje5-full.webp"
+    }
   },
   {
     "id": "mrab3mzrl95t",
@@ -131,7 +166,12 @@
     "h": 5739,
     "artist": "SHIBO",
     "whiteBalance": "Auto",
-    "title": "高楼残照"
+    "title": "高楼残照",
+    "src": {
+      "thumb": "photos/opt/mrab3mzrl95t-thumb.webp",
+      "frame": "photos/opt/mrab3mzrl95t-frame.webp",
+      "full": "photos/opt/mrab3mzrl95t-full.webp"
+    }
   },
   {
     "id": "mrab3mzs9avh",
@@ -148,7 +188,12 @@
     "h": 3957,
     "artist": "SHIBO",
     "whiteBalance": "Auto",
-    "title": "檐上暮云"
+    "title": "檐上暮云",
+    "src": {
+      "thumb": "photos/opt/mrab3mzs9avh-thumb.webp",
+      "frame": "photos/opt/mrab3mzs9avh-frame.webp",
+      "full": "photos/opt/mrab3mzs9avh-full.webp"
+    }
   },
   {
     "id": "mrab3mzskdle",
@@ -165,7 +210,12 @@
     "h": 6000,
     "artist": "SHIBO",
     "whiteBalance": "Auto",
-    "title": "云在燃烧"
+    "title": "云在燃烧",
+    "src": {
+      "thumb": "photos/opt/mrab3mzskdle-thumb.webp",
+      "frame": "photos/opt/mrab3mzskdle-frame.webp",
+      "full": "photos/opt/mrab3mzskdle-full.webp"
+    }
   },
   {
     "id": "mrab3mzs0zcv",
@@ -182,7 +232,12 @@
     "h": 3611,
     "artist": "SHIBO",
     "whiteBalance": "Auto",
-    "title": "白塔暮色"
+    "title": "白塔暮色",
+    "src": {
+      "thumb": "photos/opt/mrab3mzs0zcv-thumb.webp",
+      "frame": "photos/opt/mrab3mzs0zcv-frame.webp",
+      "full": "photos/opt/mrab3mzs0zcv-full.webp"
+    }
   },
   {
     "id": "mq0jjaynj1w0",
@@ -197,7 +252,12 @@
     "caption": "",
     "w": 6000,
     "h": 4000,
-    "title": "吉他风暴"
+    "title": "吉他风暴",
+    "src": {
+      "thumb": "photos/opt/mq0jjaynj1w0-thumb.webp",
+      "frame": "photos/opt/mq0jjaynj1w0-frame.webp",
+      "full": "photos/opt/mq0jjaynj1w0-full.webp"
+    }
   },
   {
     "id": "mq0jip80adsm",
@@ -212,7 +272,12 @@
     "caption": "",
     "w": 6000,
     "h": 4000,
-    "title": "金属的弧度"
+    "title": "金属的弧度",
+    "src": {
+      "thumb": "photos/opt/mq0jip80adsm-thumb.webp",
+      "frame": "photos/opt/mq0jip80adsm-frame.webp",
+      "full": "photos/opt/mq0jip80adsm-full.webp"
+    }
   },
   {
     "id": "mq0ji7m1kr8y",
@@ -227,7 +292,12 @@
     "caption": "",
     "w": 4000,
     "h": 6000,
-    "title": "针破灰天"
+    "title": "针破灰天",
+    "src": {
+      "thumb": "photos/opt/mq0ji7m1kr8y-thumb.webp",
+      "frame": "photos/opt/mq0ji7m1kr8y-frame.webp",
+      "full": "photos/opt/mq0ji7m1kr8y-full.webp"
+    }
   },
   {
     "id": "mq0jhj10ie71",
@@ -242,7 +312,12 @@
     "caption": "",
     "w": 6000,
     "h": 4000,
-    "title": "海鸥在等"
+    "title": "海鸥在等",
+    "src": {
+      "thumb": "photos/opt/mq0jhj10ie71-thumb.webp",
+      "frame": "photos/opt/mq0jhj10ie71-frame.webp",
+      "full": "photos/opt/mq0jhj10ie71-full.webp"
+    }
   },
   {
     "id": "mq0jg7aerirf",
@@ -257,7 +332,12 @@
     "caption": "",
     "w": 6000,
     "h": 4000,
-    "title": "蓝调摩天轮"
+    "title": "蓝调摩天轮",
+    "src": {
+      "thumb": "photos/opt/mq0jg7aerirf-thumb.webp",
+      "frame": "photos/opt/mq0jg7aerirf-frame.webp",
+      "full": "photos/opt/mq0jg7aerirf-full.webp"
+    }
   },
   {
     "id": "mq0je6a65j3p",
@@ -272,7 +352,12 @@
     "caption": "",
     "w": 6000,
     "h": 4000,
-    "title": "钢虹跨谷"
+    "title": "钢虹跨谷",
+    "src": {
+      "thumb": "photos/opt/mq0je6a65j3p-thumb.webp",
+      "frame": "photos/opt/mq0je6a65j3p-frame.webp",
+      "full": "photos/opt/mq0je6a65j3p-full.webp"
+    }
   },
   {
     "id": "mq0jdj90fk7f",
@@ -287,7 +372,12 @@
     "caption": "",
     "w": 6000,
     "h": 4000,
-    "title": "河流回头"
+    "title": "河流回头",
+    "src": {
+      "thumb": "photos/opt/mq0jdj90fk7f-thumb.webp",
+      "frame": "photos/opt/mq0jdj90fk7f-frame.webp",
+      "full": "photos/opt/mq0jdj90fk7f-full.webp"
+    }
   },
   {
     "id": "mq0jclhbr441",
@@ -302,7 +392,12 @@
     "caption": "",
     "w": 6000,
     "h": 4000,
-    "title": "峡谷半掩"
+    "title": "峡谷半掩",
+    "src": {
+      "thumb": "photos/opt/mq0jclhbr441-thumb.webp",
+      "frame": "photos/opt/mq0jclhbr441-frame.webp",
+      "full": "photos/opt/mq0jclhbr441-full.webp"
+    }
   },
   {
     "id": "mq0jb0pwwdx4",
@@ -317,7 +412,12 @@
     "caption": "",
     "w": 6000,
     "h": 4000,
-    "title": "霓虹火烈鸟"
+    "title": "霓虹火烈鸟",
+    "src": {
+      "thumb": "photos/opt/mq0jb0pwwdx4-thumb.webp",
+      "frame": "photos/opt/mq0jb0pwwdx4-frame.webp",
+      "full": "photos/opt/mq0jb0pwwdx4-full.webp"
+    }
   },
   {
     "id": "mq0iucsx5beb",
@@ -332,7 +432,12 @@
     "caption": "",
     "w": 6000,
     "h": 4000,
-    "title": "叶隙巴黎"
+    "title": "叶隙巴黎",
+    "src": {
+      "thumb": "photos/opt/mq0iucsx5beb-thumb.webp",
+      "frame": "photos/opt/mq0iucsx5beb-frame.webp",
+      "full": "photos/opt/mq0iucsx5beb-full.webp"
+    }
   },
   {
     "id": "mq0itwjhr2jv",
@@ -347,7 +452,12 @@
     "caption": "",
     "w": 6000,
     "h": 4000,
-    "title": "灯下热气球"
+    "title": "灯下热气球",
+    "src": {
+      "thumb": "photos/opt/mq0itwjhr2jv-thumb.webp",
+      "frame": "photos/opt/mq0itwjhr2jv-frame.webp",
+      "full": "photos/opt/mq0itwjhr2jv-full.webp"
+    }
   },
   {
     "id": "mq0it3lnlqks",
@@ -362,7 +472,12 @@
     "caption": "",
     "w": 6000,
     "h": 4000,
-    "title": "巨车夜行"
+    "title": "巨车夜行",
+    "src": {
+      "thumb": "photos/opt/mq0it3lnlqks-thumb.webp",
+      "frame": "photos/opt/mq0it3lnlqks-frame.webp",
+      "full": "photos/opt/mq0it3lnlqks-full.webp"
+    }
   },
   {
     "id": "mpzauy04u7ue",
@@ -377,7 +492,12 @@
     "caption": "",
     "w": 6000,
     "h": 4000,
-    "title": "赤岩残阳"
+    "title": "赤岩残阳",
+    "src": {
+      "thumb": "photos/opt/mpzauy04u7ue-thumb.webp",
+      "frame": "photos/opt/mpzauy04u7ue-frame.webp",
+      "full": "photos/opt/mpzauy04u7ue-full.webp"
+    }
   },
   {
     "id": "mpzahcllo66h",
@@ -392,7 +512,12 @@
     "caption": "",
     "w": 4000,
     "h": 6000,
-    "title": "暴雨前的光"
+    "title": "暴雨前的光",
+    "src": {
+      "thumb": "photos/opt/mpzahcllo66h-thumb.webp",
+      "frame": "photos/opt/mpzahcllo66h-frame.webp",
+      "full": "photos/opt/mpzahcllo66h-full.webp"
+    }
   },
   {
     "id": "mpza1n5whkv0",
@@ -407,7 +532,12 @@
     "caption": "",
     "w": 4000,
     "h": 6000,
-    "title": "红星之下"
+    "title": "红星之下",
+    "src": {
+      "thumb": "photos/opt/mpza1n5whkv0-thumb.webp",
+      "frame": "photos/opt/mpza1n5whkv0-frame.webp",
+      "full": "photos/opt/mpza1n5whkv0-full.webp"
+    }
   },
   {
     "id": "mpza1386xrc7",
@@ -422,7 +552,12 @@
     "caption": "",
     "w": 6000,
     "h": 4000,
-    "title": "冲锋定格"
+    "title": "冲锋定格",
+    "src": {
+      "thumb": "photos/opt/mpza1386xrc7-thumb.webp",
+      "frame": "photos/opt/mpza1386xrc7-frame.webp",
+      "full": "photos/opt/mpza1386xrc7-full.webp"
+    }
   },
   {
     "id": "mpza05jzzgd6",
@@ -437,7 +572,12 @@
     "caption": "",
     "w": 5546,
     "h": 3697,
-    "title": "银翼悬停"
+    "title": "银翼悬停",
+    "src": {
+      "thumb": "photos/opt/mpza05jzzgd6-thumb.webp",
+      "frame": "photos/opt/mpza05jzzgd6-frame.webp",
+      "full": "photos/opt/mpza05jzzgd6-full.webp"
+    }
   },
   {
     "id": "mpz9zlxcjw1b",
@@ -452,7 +592,12 @@
     "caption": "",
     "w": 6000,
     "h": 4000,
-    "title": "归于静止"
+    "title": "归于静止",
+    "src": {
+      "thumb": "photos/opt/mpz9zlxcjw1b-thumb.webp",
+      "frame": "photos/opt/mpz9zlxcjw1b-frame.webp",
+      "full": "photos/opt/mpz9zlxcjw1b-full.webp"
+    }
   },
   {
     "id": "mpz9yqgzexlk",
@@ -467,7 +612,12 @@
     "caption": "",
     "w": 6000,
     "h": 4000,
-    "title": "橙翼落地"
+    "title": "橙翼落地",
+    "src": {
+      "thumb": "photos/opt/mpz9yqgzexlk-thumb.webp",
+      "frame": "photos/opt/mpz9yqgzexlk-frame.webp",
+      "full": "photos/opt/mpz9yqgzexlk-full.webp"
+    }
   },
   {
     "id": "mpz9yckyc54q",
@@ -482,7 +632,12 @@
     "caption": "",
     "w": 3024,
     "h": 4536,
-    "title": "尾翼灯阵"
+    "title": "尾翼灯阵",
+    "src": {
+      "thumb": "photos/opt/mpz9yckyc54q-thumb.webp",
+      "frame": "photos/opt/mpz9yckyc54q-frame.webp",
+      "full": "photos/opt/mpz9yckyc54q-full.webp"
+    }
   },
   {
     "id": "mpz9mxvan6nn",
@@ -497,7 +652,12 @@
     "caption": "",
     "w": 6000,
     "h": 4000,
-    "title": "机首红字"
+    "title": "机首红字",
+    "src": {
+      "thumb": "photos/opt/mpz9mxvan6nn-thumb.webp",
+      "frame": "photos/opt/mpz9mxvan6nn-frame.webp",
+      "full": "photos/opt/mpz9mxvan6nn-full.webp"
+    }
   },
   {
     "id": "mpz97485auny",
@@ -512,6 +672,11 @@
     "caption": "",
     "w": 6000,
     "h": 4000,
-    "title": "塞多纳的她"
+    "title": "塞多纳的她",
+    "src": {
+      "thumb": "photos/opt/mpz97485auny-thumb.webp",
+      "frame": "photos/opt/mpz97485auny-frame.webp",
+      "full": "photos/opt/mpz97485auny-full.webp"
+    }
   }
 ]
