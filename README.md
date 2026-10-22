@@ -104,8 +104,22 @@ Open the site, go to **Darkroom**, and sign in. Uploading a photo or editing set
 
 **Uploads transcode in the browser.** Picking files does not send masters: the
 dashboard decodes each photo, encodes the three WebP tiers, and pushes them with a
-single commit per batch (Git Data API: blobs → tree → commit → ref). A ten-photo
-batch is one commit and one Pages build, where it used to be twenty of each.
+single commit per batch (Git Data API: blobs → tree → commit → ref) — with
+`photos/index.json` folded into that same tree, so the image files and the manifest
+that points at them can never disagree. A ten-photo batch is one commit and one
+Pages build, where it used to be twenty of each.
+
+Two concurrency caps matter here and they are deliberately different numbers.
+Encoding is memory-bound — one 24-megapixel frame expands to roughly 96 MB of
+RGBA — so frames are encoded two at a time; a queue decoded in parallel is how the
+tab dies. Blob writes are I/O-bound but rate-limited, so they run four at a time.
+Every request carries a 90-second deadline and up to three retries with jittered
+backoff. That is what makes a dropped connection survivable: the blob phase is
+content-addressed and side-effect free, so replaying it cannot duplicate anything.
+
+A frame that fails to encode or commit stays in the queue rather than vanishing, so
+a retry is one click instead of a trip back to Finder.
+
 Flip `UPLOAD_NEGATIVE = true` at the top of the upload section if you want the
 original archived too — it costs 8–19 MB per frame, so it is off by default.
 

@@ -1381,24 +1381,69 @@ function getConfig() {
 /* ═══════════════════════════════════════════════════════════
    GITHUB API HELPERS
 ═══════════════════════════════════════════════════════════ */
-async function ghFetch(path, opts = {}) {
-  const { owner, repo, branch, token } = getConfig();
-  if (!owner || !repo || !token) throw new Error("GitHub not configured");
-  const base = `https://api.github.com/repos/${owner}/${repo}`;
-  const res = await fetch(`${base}${path}`, {
-    ...opts,
-    headers: {
-      Authorization: `token ${token}`,
-      "Content-Type": "application/json",
-      Accept: "application/vnd.github+json",
-      ...(opts.headers || {})
-    }
-  });
-  if (!res.ok) {
+/* ── Transport: timeout + bounded retry ──
+   Every request gets a hard deadline and up to four attempts. This is the piece
+   that makes an interrupted upload survivable: a dropped Wi-Fi connection used
+   to abort the whole batch, and GitHub's secondary rate limiter answers a burst
+   of parallel writes with a 403 whose body — not its status — is the only thing
+   that distinguishes it from a real permission error.
+   Replay is safe because /git/blobs is content-addressed: the same bytes always
+   produce the same sha, so a duplicate POST cannot create anything new. */
+
+const GH_TIMEOUT_MS = 90000;    // per attempt; a 400 KB blob over slow mobile needs room
+const GH_MAX_ATTEMPTS = 4;
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// 429/5xx are transient by definition. 403 is ambiguous: GitHub uses it for both
+// "you may not" and "you are too fast", so trust the message, not the status.
+function isRetryableStatus(status, message) {
+  if (status === 429 || status >= 500) return true;
+  if (status === 403) return /rate limit|abuse|temporar|try again/i.test(message);
+  return false;
+}
+
+async function ghFetchOnce(path, opts) {
+  const { owner, repo, token } = getConfig();
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), GH_TIMEOUT_MS);
+  try {
+    const res = await fetch(`https://api.github.com/repos/${owner}/${repo}${path}`, {
+      ...opts,
+      signal: ctrl.signal,
+      headers: {
+        Authorization: `token ${token}`,
+        "Content-Type": "application/json",
+        Accept: "application/vnd.github+json",
+        ...(opts.headers || {})
+      }
+    });
+    if (res.ok) return res.status === 204 ? null : res.json();
     const e = await res.json().catch(() => ({}));
-    throw new Error(e.message || `GitHub ${res.status}`);
+    const err = new Error(e.message || `GitHub ${res.status}`);
+    err.status = res.status;
+    throw err;
+  } finally {
+    clearTimeout(timer);
   }
-  return res.status === 204 ? null : res.json();
+}
+
+async function ghFetch(path, opts = {}) {
+  const { owner, repo, token } = getConfig();
+  if (!owner || !repo || !token) throw new Error("GitHub not configured");
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await ghFetchOnce(path, opts);
+    } catch (err) {
+      const retryable = err.status
+        ? isRetryableStatus(err.status, err.message)
+        : err.name === "AbortError" || /network|failed to fetch|load failed|fetch/i.test(err.message);
+      if (attempt >= GH_MAX_ATTEMPTS - 1 || !retryable) throw err;
+      // Jittered exponential backoff keeps parallel workers from retrying in
+      // lockstep, which is itself a way to stay rate-limited forever.
+      await sleep(Math.min(8000, 500 * 2 ** attempt) * (0.5 + Math.random()));
+    }
+  }
 }
 
 /* ── Image renditions ──
@@ -1413,6 +1458,28 @@ function thumbUrl(url, w, q) {
   if (!/\.(jpe?g|png|webp|gif|avif)(\?|$)/i.test(url)) return url;
   const quality = q ?? (w >= 3000 ? 92 : 90);
   return `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=${w}&q=${quality}&output=jpg`;
+}
+
+/* ── Bounded concurrency ──
+   Runs `worker` over `items` with at most `limit` in flight, preserving order in
+   the result array. Two different limits are needed in this page and conflating
+   them was the original bug: decoding a 24-megapixel frame costs roughly 96 MB
+   of RGBA, so a twenty-frame batch decoded in parallel asks for about a gigabyte
+   and the tab dies. Encoding is also CPU-bound — extra decoders only fight over
+   the same cores. Network writes are the opposite: I/O-bound, but rate-limited,
+   so they want a limit too, just a different one. */
+async function pool(items, limit, worker) {
+  const results = new Array(items.length);
+  let next = 0;
+  const runners = Array.from({ length: Math.min(Math.max(1, limit), items.length) }, async () => {
+    for (;;) {
+      const i = next++;
+      if (i >= items.length) return;
+      results[i] = await worker(items[i], i);
+    }
+  });
+  await Promise.all(runners);
+  return results;
 }
 
 /* Prefer the static rendition; fall back to the proxy for legacy rows. */
@@ -1536,26 +1603,6 @@ async function mutateIndex(mutator) {
       throw e;
     }
   }
-}
-
-// Insert a photo row, then re-read the index a moment later and retry the insert
-// once if the row didn't land. The insert is id-guarded so it's idempotent — a
-// false-negative re-read can never create a duplicate. Belt-and-suspenders on
-// top of mutateIndex's optimistic locking.
-async function addPhotoToIndex(record) {
-  const insert = photos => {
-    if (!photos.some(p => p.id === record.id)) photos.unshift(record);
-    return photos;
-  };
-  await mutateIndex(insert);
-  await new Promise(r => setTimeout(r, 1000));   // let the Contents API settle
-  let present = true;
-  try {
-    const data = await ghFetch("/contents/photos/index.json");
-    const idx = JSON.parse(decodeURIComponent(escape(atob(data.content.replace(/\s/g, "")))));
-    present = idx.some(p => p.id === record.id);
-  } catch { present = true; }                    // can't verify → trust the confirmed write
-  if (!present) await mutateIndex(insert);
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1756,90 +1803,100 @@ async function uploadPhoto() {
   loadAdminGallery();
 }
 
-// Batch upload all files in queue — parallel uploads + single index write
+/* Decoding is memory-bound, not CPU-bound: one 24-megapixel frame expands to
+   about 96 MB of RGBA, so a twenty-frame batch decoded in parallel asks for a
+   gigabyte and the tab dies. Two at a time keeps a laptop predictable while
+   still overlapping frame N's encode with frame N+1's decode. Encoding is also
+   CPU-bound, so raising this buys nothing but heat. */
+const ENCODE_CONCURRENCY = 2;
+
+// Batch upload all files in queue — bounded encode, bounded upload, one commit
 async function uploadAllPhotos() {
   if (!batchQueue.length) { showStatus("No photos in queue.", "error"); return; }
   const cfg = getConfig();
   if (!cfg.owner || !cfg.repo || !cfg.token) { showStatus("Configure GitHub first.", "error"); return; }
 
-  const total = batchQueue.length;
   const progr = document.getElementById("batch-progress");
   const progBar = document.getElementById("batch-progress-bar");
   const progText = document.getElementById("batch-progress-text");
+  const btnAll = document.getElementById("btn-upload-all");
+  const btnOne = document.getElementById("btn-upload-one");
   progr.classList.remove("hidden");
-  document.getElementById("btn-upload-all").disabled = true;
-  document.getElementById("btn-upload-one").disabled = true;
+  btnAll.disabled = true;
+  btnOne.disabled = true;
 
-  let completed = 0, success = 0, fail = 0;
-  const records = [];
-  const errors = [];
+  // Snapshot the queue: the render pass rewrites it, and every frame in this run
+  // shares the metadata form exactly as it stands right now.
+  const files = [...batchQueue];
+  const total = files.length;
+  let encoded = 0;
+  const setProgress = (text, pct) => {
+    if (text) progText.textContent = text;
+    progBar.style.width = `${Math.round(pct)}%`;
+  };
 
-  function tick() {
-    completed++;
-    progText.textContent = `Uploading ${completed}/${total}`;
-    progBar.style.width = `${Math.round((completed/total)*100)}%`;
-  }
-
-  // Step 1 — build every rendition locally (no network, no commits yet)
-  const prepared = [];
-  const tasks = batchQueue.map(async (file) => {
+  // ① Encode locally. No network, no commits — and deliberately not 1 file per
+  // core, because the cost here is RAM rather than throughput.
+  const results = await pool(files, ENCODE_CONCURRENCY, async file => {
     try {
-      prepared.push(await preparePhoto(file));
-      success++;
+      return { file, built: await preparePhoto(file) };
     } catch (err) {
-      fail++;
-      errors.push({ file: file.name, error: err.message });
-      console.error(`Failed: ${file.name}`, err);
+      console.error(`Encode failed: ${file.name}`, err);
+      return { file, error: err };
+    } finally {
+      encoded++;
+      setProgress(`Encoding ${encoded}/${total}…`, (encoded / total) * 80);
     }
-    tick();
   });
-  await Promise.all(tasks);
 
-  // Step 2 — push the whole batch in ONE commit (one Pages build, not one per file)
-  if (prepared.length > 0) {
-    progText.textContent = `Uploading ${prepared.length} frame(s) in one commit…`;
+  const prepared = results.filter(r => r.built);
+  const failures = results.filter(r => r.error)
+    .map(r => ({ file: r.file.name, error: r.error.message }));
+
+  // ② One commit for the batch — renditions *and* manifest rows in the same
+  // tree, so the published site is never half-updated.
+  let committed = [];
+  if (prepared.length) {
+    setProgress(`Uploading ${prepared.length} frame${prepared.length > 1 ? "s" : ""}…`, 85);
     try {
       await commitFiles(
-        prepared.flatMap(p => p.files),
-        `Add ${prepared.length} photo${prepared.length > 1 ? "s" : ""}`
+        prepared.flatMap(r => r.built.files),
+        `Add ${prepared.length} photo${prepared.length > 1 ? "s" : ""}`,
+        indexInsertMutator(prepared.map(r => r.built.record))
       );
-      records.push(...prepared.map(p => p.record));
+      committed = prepared;
     } catch (err) {
-      fail += prepared.length;
-      success -= prepared.length;
-      errors.push({ file: "batch", error: err.message });
       console.error("Batch commit failed:", err);
+      failures.push({ file: `${prepared.length} frame(s)`, error: err.message });
     }
   }
 
-  // Step 3 — write ALL records to index in ONE atomic operation
-  if (records.length > 0) {
-    progText.textContent = "Writing index…";
-    try {
-      await batchAddToIndex(records);
-    } catch (err) {
-      console.error("Index write failed:", err);
-      progText.textContent = `Uploaded ${success} images but index write failed`;
-      document.getElementById("btn-upload-all").disabled = false;
-      document.getElementById("btn-upload-one").disabled = false;
-      showStatus(`Images uploaded but index write failed: ${friendlyUploadError(err.message)}`, "error");
-      clearUpload();
-      loadAdminGallery();
-      return;
-    }
-  }
+  // ③ Drop only what actually landed. A failed frame stays in the queue, so a
+  // retry is one click instead of a trip back to Finder — and the frames that
+  // did commit are never re-encoded or re-uploaded.
+  const landed = new Set(committed.map(r => r.file));
+  batchQueue = batchQueue.filter(f => !landed.has(f));
+  renderQueue();
+  if (!batchQueue.length) document.getElementById("file-input").value = "";
 
-  progBar.style.width = "100%";
-  const msg = `Done: ${success}/${total} uploaded`;
-  progText.textContent = fail ? msg + ` (${fail} failed)` : msg;
-
+  setProgress("", 100);
   setTimeout(() => progr.classList.add("hidden"), 1500);
-  document.getElementById("btn-upload-all").disabled = false;
-  document.getElementById("btn-upload-one").disabled = false;
-  const detail = errors.length ? ` — ${friendlyUploadError(errors[0].error)}` : "";
-  showStatus(msg + (fail ? ` (${fail} failed)${detail}` : ""), fail ? "error" : "success");
+  btnAll.disabled = false;
+  btnOne.disabled = false;
 
-  clearUpload();
+  const ok = committed.length;
+  const bad = total - ok;
+  const base = ok === total
+    ? `Uploaded ${ok} photo${ok === 1 ? "" : "s"}`
+    : `Uploaded ${ok}/${total}`;
+  if (!bad) {
+    showStatus(base, "success");
+  } else {
+    const detail = failures.length ? ` — ${friendlyUploadError(failures[0].error)}` : "";
+    const tail = ok ? " The rest are still in the queue." : " Nothing was committed; the queue is intact.";
+    showStatus(`${base} (${bad} failed)${detail}.${tail}`, "error");
+  }
+
   loadAdminGallery();
 }
 
@@ -1898,41 +1955,101 @@ function blobToBase64(blob) {
   });
 }
 
-/* ── One commit for many files (Git Data API) ────────────────
-   The Contents API commits once per file, and every commit triggers a Pages
-   build, so a ten-photo batch used to cost twenty builds. Blobs + tree + commit
-   + ref is one build for the whole batch. Falls back to per-file commits if the
-   Data API path is unavailable, so a failure never loses the upload. */
-async function commitFiles(files, message) {
+/* ── One commit for the whole batch (Git Data API) ───────────
+   The Contents API commits once per file and every commit triggers a Pages
+   build, so a ten-photo batch used to cost twenty builds. Blobs → tree →
+   commit → ref collapses that into one.
+
+   Pass an `indexMutator` to fold photos/index.json into the *same* tree: the
+   image files and the manifest they belong to then land atomically, so the site
+   can never show a frame whose row is missing (or a row whose file is missing),
+   and the batch costs one build instead of two.
+
+   The two phases have deliberately different safety properties:
+     ① blobs — content-addressed, no side effects, invisible until referenced.
+        Safe to replay from the start; an orphaned blob is garbage-collected.
+     ② tree/commit/ref — the actual publish. Retried only on a lost race, which
+        is the one failure here that a retry genuinely fixes. */
+
+const BLOB_CONCURRENCY = 4;   // low enough to stay clear of GitHub's secondary limiter
+
+function isNonFastForward(err) {
+  return /\b(409|422)\b/.test(err.status || "") ||
+         /fast forward|conflict|already exists|does not match/i.test(err.message || "");
+}
+
+async function commitFiles(files, message, indexMutator = null) {
   const { branch } = getConfig();
-  try {
-    const ref = await ghFetch(`/git/ref/heads/${branch}`);
-    const headSha = ref.object.sha;
-    const head = await ghFetch(`/git/commits/${headSha}`);
-    const blobs = await Promise.all(files.map(async f => {
-      const b = await ghFetch("/git/blobs", {
+
+  // ① Upload every blob. A batch holds 3 blobs per frame, so a twenty-frame
+  // batch is sixty writes: parallel enough to matter, capped so the rate limiter
+  // does not answer with a 403 that looks like a permissions problem.
+  const blobs = await pool(files, BLOB_CONCURRENCY, async f => {
+    const b = await ghFetch("/git/blobs", {
+      method: "POST",
+      body: JSON.stringify({ content: f.b64, encoding: "base64" })
+    });
+    return { path: f.path, mode: "100644", type: "blob", sha: b.sha };
+  });
+
+  // ② Publish. Re-read the branch head every attempt: a retry is only correct
+  // against the head that actually exists at that moment.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    let nextIndex = null;
+    try {
+      const ref = await ghFetch(`/git/ref/heads/${branch}`);
+      const headSha = ref.object.sha;
+      const head = await ghFetch(`/git/commits/${headSha}`);
+      const entries = [...blobs];
+
+      if (indexMutator) {
+        // Only a *missing* manifest justifies starting from an empty array. If a
+        // 401/403/network failure were treated as "empty" the next commit would
+        // replace the whole manifest with just this batch, so anything that is
+        // not a clean 404 aborts the commit instead.
+        let cur = null;
+        try {
+          cur = await ghFetch("/contents/photos/index.json");
+        } catch (err) {
+          if (err.status !== 404) throw err;      // first commit on a fresh repo only
+        }
+        const photos = cur
+          ? JSON.parse(decodeURIComponent(escape(atob(cur.content.replace(/\s/g, "")))))
+          : [];
+        nextIndex = indexMutator([...photos]);
+        const idxB64 = btoa(unescape(encodeURIComponent(JSON.stringify(nextIndex, null, 2))));
+        const idxBlob = await ghFetch("/git/blobs", {
+          method: "POST",
+          body: JSON.stringify({ content: idxB64, encoding: "base64" })
+        });
+        entries.push({ path: "photos/index.json", mode: "100644", type: "blob", sha: idxBlob.sha });
+      }
+
+      const tree = await ghFetch("/git/trees", {
         method: "POST",
-        body: JSON.stringify({ content: f.b64, encoding: "base64" })
+        body: JSON.stringify({ base_tree: head.tree.sha, tree: entries })
       });
-      return { path: f.path, mode: "100644", type: "blob", sha: b.sha };
-    }));
-    const tree = await ghFetch("/git/trees", {
-      method: "POST",
-      body: JSON.stringify({ base_tree: head.tree.sha, tree: blobs })
-    });
-    const commit = await ghFetch("/git/commits", {
-      method: "POST",
-      body: JSON.stringify({ message, tree: tree.sha, parents: [headSha] })
-    });
-    await ghFetch(`/git/refs/heads/${branch}`, {
-      method: "PATCH",
-      body: JSON.stringify({ sha: commit.sha, force: false })
-    });
-    return commit.sha;
-  } catch (err) {
-    console.warn("Git Data API unavailable, falling back to per-file commits:", err);
-    for (const f of files) await putFile(f.path, f.b64, message);
-    return null;
+      const commit = await ghFetch("/git/commits", {
+        method: "POST",
+        body: JSON.stringify({ message, tree: tree.sha, parents: [headSha] })
+      });
+      await ghFetch(`/git/refs/heads/${branch}`, {
+        method: "PATCH",
+        body: JSON.stringify({ sha: commit.sha, force: false })
+      });
+
+      if (nextIndex) photosCache = nextIndex;
+      return commit.sha;
+    } catch (err) {
+      // Someone else pushed between our read and our ref update. Rebuild against
+      // the new head — the blobs are already uploaded and cost nothing to reuse.
+      if (attempt < 2 && isNonFastForward(err)) {
+        console.warn(`Commit raced another writer, retrying (${attempt + 1}/2):`, err.message);
+        await sleep(400 * (attempt + 1));
+        continue;
+      }
+      throw err;
+    }
   }
 }
 
@@ -1972,27 +2089,27 @@ async function preparePhoto(file) {
   return { record, files };
 }
 
-// Core upload — pushes one frame's renditions in a single commit, returns record
-async function uploadPhotoFile(file) {
-  const { record, files } = await preparePhoto(file);
-  await commitFiles(files, `Add photo: ${record.location} ${record.date}`);
-  return record;
-}
-
-// Single-photo upload (backward compat — upload + index write)
-async function doUploadFile(file) {
-  const record = await uploadPhotoFile(file);
-  await addPhotoToIndex(record);
-}
-
-// Batch index write — inserts many records in ONE atomic mutateIndex call
-async function batchAddToIndex(records) {
-  await mutateIndex(photos => {
+// Insert records at the head of the manifest, id-guarded so re-running an
+// interrupted batch can never duplicate a row.
+function indexInsertMutator(records) {
+  return photos => {
     for (const r of records) {
       if (!photos.some(p => p.id === r.id)) photos.unshift(r);
     }
     return photos;
-  });
+  };
+}
+
+// Core upload — pushes one frame's renditions *and* its index row in one commit.
+async function uploadPhotoFile(file) {
+  const { record, files } = await preparePhoto(file);
+  await commitFiles(files, `Add photo: ${record.location} ${record.date}`, indexInsertMutator([record]));
+  return record;
+}
+
+// Single-photo upload (backward compat)
+async function doUploadFile(file) {
+  return uploadPhotoFile(file);
 }
 
 function fileToBase64(file) {
