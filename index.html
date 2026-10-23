@@ -1423,6 +1423,12 @@ async function ghFetchOnce(path, opts) {
   try {
     const res = await fetch(`https://api.github.com/repos/${owner}/${repo}${path}`, {
       ...opts,
+      // GitHub serves its REST responses with Cache-Control: max-age=60. Left to
+      // the HTTP cache, a follow-up GET can answer with a stale ref or a stale
+      // manifest — and a stale manifest is not a display bug, it is data loss:
+      // the next commit would replace photos/index.json with an older copy and
+      // silently drop whatever was added in between.
+      cache: "no-store",
       signal: ctrl.signal,
       headers: {
         Authorization: `token ${token}`,
@@ -1872,6 +1878,12 @@ async function readBatchExif(file) {
 function renderQueue() {
   const q = document.getElementById("queue-items");
   if (!batchQueue.length) {
+    // Clear the rows as well as hiding them: the <img> previews hold object URLs
+    // that would otherwise stay alive for the life of the page.
+    q.querySelectorAll("img").forEach(img => {
+      if (img.src.startsWith("blob:")) URL.revokeObjectURL(img.src);
+    });
+    q.innerHTML = "";
     document.getElementById("file-queue").classList.add("hidden");
     document.getElementById("btn-upload-all").classList.add("hidden");
     document.getElementById("btn-upload-one").classList.add("hidden");
