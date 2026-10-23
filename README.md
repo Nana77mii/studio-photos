@@ -120,6 +120,22 @@ content-addressed and side-effect free, so replaying it cannot duplicate anythin
 A frame that fails to encode or commit stays in the queue rather than vanishing, so
 a retry is one click instead of a trip back to Finder.
 
+**Batches survive a closed tab.** Encoding is the expensive half — a 24-megapixel
+frame costs about a second of CPU and a lot of memory — so throwing it away when a
+laptop sleeps mid-upload is a bad trade. The dashboard keeps a job in IndexedDB with
+two checkpoints per frame: the encoded WebP bodies, and the sha GitHub returns for
+each blob once it lands. On the next visit the Darkroom offers to finish the batch,
+and it needs no original files to do it — everything is already encoded.
+
+Resuming skips by sha rather than by guesswork, which is the whole point: a blob sha
+is derived from its content, so holding one is proof those bytes are on the server
+and re-uploading them would only burn quota. A resumed batch therefore pays for the
+frames that did not land and nothing else. The job is discarded once the commit is
+confirmed, and abandoned batches are dropped after seven days so an interrupted
+upload cannot pin tens of megabytes forever. Where IndexedDB is unavailable — private
+windows, some embedded webviews — the store degrades to memory: uploads still work,
+they just cannot outlive the page.
+
 Flip `UPLOAD_NEGATIVE = true` at the top of the upload section if you want the
 original archived too — it costs 8–19 MB per frame, so it is off by default.
 

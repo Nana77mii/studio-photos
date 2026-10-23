@@ -1016,7 +1016,20 @@ body.fonts-ready { opacity:1; transition:opacity 0.15s; }
     <!-- Upload Panel -->
     <div class="ghost-border rounded p-6 mb-8 bg-white/[0.02]">
       <p class="text-xs tracking-widest uppercase text-on-surface-variant mb-6">Upload New Photo</p>
-      
+
+      <!-- Unfinished batch: the encoded renditions are still in IndexedDB, so this
+           can finish without the original files. -->
+      <div id="resume-banner" class="hidden mb-6 flex items-center justify-between gap-4 rounded border border-amber-300/30 bg-amber-300/[0.06] px-4 py-3">
+        <div class="min-w-0">
+          <p class="text-xs tracking-widest uppercase text-amber-200/80 mb-1">Unfinished upload</p>
+          <p id="resume-text" class="text-xs text-on-surface-variant truncate"></p>
+        </div>
+        <div class="flex items-center gap-2 flex-shrink-0">
+          <button onclick="resumeUpload()" class="btn-primary text-xs py-1.5 px-3">Resume</button>
+          <button onclick="discardResume()" class="text-xs text-on-surface-variant hover:text-red-400 transition-colors px-2">Discard</button>
+        </div>
+      </div>
+
       <!-- Drop Zone -->
       <div id="drop-zone" class="drop-zone rounded p-10 text-center mb-6 relative">
         <span class="material-symbols-outlined text-4xl text-on-surface-variant mb-3 block">upload_file</span>
@@ -1232,7 +1245,7 @@ function showView(name) {
   if (name === "home") loadTimeline();
   updateEditLayoutBtn();
   if (name === "chronicles") loadChronicles();
-  if (name === "admin") { loadConfig(); loadAdminGallery(); fillSettingsForm(siteSettings); verifyTokenStatus(); }
+  if (name === "admin") { loadConfig(); loadAdminGallery(); fillSettingsForm(siteSettings); verifyTokenStatus(); refreshResumeBanner(); }
 }
 
 function toggleMobileMenu() {
@@ -1606,6 +1619,163 @@ async function mutateIndex(mutator) {
 }
 
 /* ═══════════════════════════════════════════════════════════
+   RESUMABLE UPLOAD STATE
+═══════════════════════════════════════════════════════════ */
+/* An upload has three expensive stages and only the last one cannot be repeated:
+     ① encode  — burns CPU and ~96 MB per frame; the result is three WebP blobs
+     ② upload  — pushes those blobs; GitHub answers with a content-addressed sha
+     ③ commit  — one atomic tree/commit/ref, which is the only real publish
+
+   Everything before ③ is replayable, so a checkpoint after each stage is enough
+   to resume: encoded blobs go into IndexedDB, and once a blob has a sha that sha
+   *is* the proof it landed — the same bytes can only produce the same sha. A
+   resume therefore skips work by sha, never by "that probably worked", which is
+   the difference between resuming and re-uploading into duplicates.
+
+   IndexedDB is the only browser store that holds megabytes of Blob (localStorage
+   caps near 5 MB). Where it is missing — private windows, some embedded webviews
+   — the store degrades to memory: uploads still work, they just cannot survive a
+   page close. */
+const UploadStore = (() => {
+  const DB_NAME = "darkroom-uploads";
+  const DB_VERSION = 1;
+  const JOB_TTL = 7 * 24 * 60 * 60 * 1000;   // forget abandoned batches after a week
+
+  const memJobs = new Map();
+  const memBlobs = new Map();
+  const useIdb = typeof indexedDB !== "undefined" && !!indexedDB;
+
+  // Jobs are plain JSON (no Blobs), so a JSON round-trip is a safe fallback where
+  // structuredClone is missing — Safari only got it in 15.4.
+  const clone = typeof structuredClone === "function"
+    ? structuredClone
+    : obj => JSON.parse(JSON.stringify(obj));
+
+  let dbPromise = null;
+  function db() {
+    if (!useIdb) return Promise.resolve(null);
+    if (dbPromise) return dbPromise;
+    dbPromise = new Promise((res, rej) => {
+      const req = indexedDB.open(DB_NAME, DB_VERSION);
+      req.onupgradeneeded = () => {
+        const d = req.result;
+        if (!d.objectStoreNames.contains("jobs")) d.createObjectStore("jobs", { keyPath: "jobId" });
+        if (!d.objectStoreNames.contains("blobs")) d.createObjectStore("blobs", { keyPath: "key" });
+      };
+      req.onsuccess = () => res(req.result);
+      req.onerror = () => { dbPromise = null; rej(req.error); };
+    });
+    return dbPromise;
+  }
+
+  const settle = r => new Promise((res, rej) => {
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+
+  async function put(store, value) {
+    if (!useIdb) return;
+    const d = await db();
+    await new Promise((res, rej) => {
+      const t = d.transaction(store, "readwrite");
+      t.objectStore(store).put(value);
+      t.oncomplete = res;
+      t.onerror = () => rej(t.error);
+    });
+  }
+
+  async function get(store, key) {
+    if (!useIdb) return null;
+    const d = await db();
+    return settle(d.transaction(store, "readonly").objectStore(store).get(key));
+  }
+
+  async function del(store, key) {
+    if (!useIdb) return;
+    const d = await db();
+    await new Promise((res, rej) => {
+      const t = d.transaction(store, "readwrite");
+      t.objectStore(store).delete(key);
+      t.oncomplete = res;
+      t.onerror = () => rej(t.error);
+    });
+  }
+
+  async function allJobs() {
+    if (!useIdb) return [...memJobs.values()];
+    const d = await db();
+    return (await settle(d.transaction("jobs", "readonly").objectStore("jobs").getAll())) || [];
+  }
+
+  async function dropJob(jobId) {
+    const job = await loadJob(jobId);
+    if (job) {
+      for (const item of job.items || []) {
+        for (const tier of ["thumb", "frame", "full"]) await deleteBlob(`${item.id}:${tier}`);
+      }
+    }
+    if (!useIdb) { memJobs.delete(jobId); return; }
+    await del("jobs", jobId);
+  }
+
+  async function loadJob(jobId) {
+    if (!useIdb) return memJobs.get(jobId) || null;
+    return (await get("jobs", jobId)) || null;
+  }
+
+  async function deleteBlob(key) {
+    if (!useIdb) { memBlobs.delete(key); return; }
+    await del("blobs", key);
+  }
+
+  return {
+    available: useIdb,
+
+    saveJob(job) {
+      if (!useIdb) { memJobs.set(job.jobId, clone(job)); return Promise.resolve(); }
+      return put("jobs", clone(job));
+    },
+
+    loadJob,
+
+    // The newest unfinished batch. Only one at a time: two half-finished batches
+    // would race each other for the same branch head.
+    async pendingJob() {
+      const live = (await allJobs()).filter(j => Date.now() - (j.createdAt || 0) < JOB_TTL);
+      live.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      return live[0] || null;
+    },
+
+    putBlob(key, blob) {
+      if (!useIdb) { memBlobs.set(key, blob); return Promise.resolve(); }
+      return put("blobs", { key, blob });
+    },
+
+    async getBlob(key) {
+      if (!useIdb) return memBlobs.get(key) || null;
+      const rec = await get("blobs", key);
+      return rec ? rec.blob : null;
+    },
+
+    dropJob,
+    deleteBlob,
+
+    // An abandoned batch must not pin tens of megabytes forever.
+    async prune() {
+      for (const job of await allJobs()) {
+        if (Date.now() - (job.createdAt || 0) > JOB_TTL) await dropJob(job.jobId);
+      }
+    },
+  };
+})();
+
+// Stable identity for a file across a reload. The name alone collides, and a
+// re-exported JPEG keeps neither size nor mtime — so all three.
+function fileKeyOf(file) {
+  return `${file.name}|${file.size}|${file.lastModified || 0}`;
+}
+
+/* ═══════════════════════════════════════════════════════════
    FILE UPLOAD HANDLING (batch support)
 ═══════════════════════════════════════════════════════════ */
 let batchQueue = [];
@@ -1810,80 +1980,147 @@ async function uploadPhoto() {
    CPU-bound, so raising this buys nothing but heat. */
 const ENCODE_CONCURRENCY = 2;
 
-// Batch upload all files in queue — bounded encode, bounded upload, one commit
-async function uploadAllPhotos() {
-  if (!batchQueue.length) { showStatus("No photos in queue.", "error"); return; }
-  const cfg = getConfig();
-  if (!cfg.owner || !cfg.repo || !cfg.token) { showStatus("Configure GitHub first.", "error"); return; }
+/* ── The upload pipeline, as a resumable job ──
+   A job is the durable record of one batch: for every frame it holds the id, the
+   manifest row, the three target paths, and the sha of each blob that has already
+   landed. Encoding writes the blob bodies to IndexedDB and the job to a separate
+   store, so the two can be updated independently and a crash between them costs at
+   most one re-encode rather than the whole batch. */
 
-  const progr = document.getElementById("batch-progress");
-  const progBar = document.getElementById("batch-progress-bar");
-  const progText = document.getElementById("batch-progress-text");
-  const btnAll = document.getElementById("btn-upload-all");
-  const btnOne = document.getElementById("btn-upload-one");
-  progr.classList.remove("hidden");
-  btnAll.disabled = true;
-  btnOne.disabled = true;
-
-  // Snapshot the queue: the render pass rewrites it, and every frame in this run
-  // shares the metadata form exactly as it stands right now.
-  const files = [...batchQueue];
-  const total = files.length;
-  let encoded = 0;
-  const setProgress = (text, pct) => {
-    if (text) progText.textContent = text;
-    progBar.style.width = `${Math.round(pct)}%`;
+function newJob(branch) {
+  return {
+    jobId: (crypto.randomUUID ? crypto.randomUUID() : `job-${Date.now()}-${Math.random().toString(36).slice(2)}`),
+    createdAt: Date.now(),
+    branch,
+    items: [],       // { id, fileName, fileKey, record, paths, sha:{tier→sha} }
   };
+}
 
-  // ① Encode locally. No network, no commits — and deliberately not 1 file per
-  // core, because the cost here is RAM rather than throughput.
-  const results = await pool(files, ENCODE_CONCURRENCY, async file => {
+// Reuse an unfinished job only when it is the *same* batch — every frame it knows
+// about must still be in the queue. Otherwise the user has moved on, and silently
+// finishing last week's photos alongside today's would be a surprise, not a rescue.
+async function beginJob(files, branch) {
+  const pending = await UploadStore.pendingJob();
+  if (pending && pending.branch === branch) {
+    const wanted = new Set(files.map(fileKeyOf));
+    const sameBatch = (pending.items || []).length > 0 &&
+                      pending.items.every(it => wanted.has(it.fileKey));
+    if (sameBatch) return { job: pending, resumed: true };
+    await UploadStore.dropJob(pending.jobId);
+  }
+  const job = newJob(branch);
+  await UploadStore.saveJob(job);
+  return { job, resumed: false };
+}
+
+// Serialise job writes: several encodes finish in parallel and a last-write-wins
+// race could drop an item that another worker just recorded.
+function jobWriter(job) {
+  let chain = Promise.resolve();
+  return () => {
+    chain = chain.then(() => UploadStore.saveJob(job)).catch(err => console.warn("job save failed", err));
+    return chain;
+  };
+}
+
+// ① Encode whatever this job does not already have. Returns per-file outcomes.
+async function encodeIntoJob(job, files, persist, onTick) {
+  let n = 0;
+  return pool(files, ENCODE_CONCURRENCY, async file => {
+    const key = fileKeyOf(file);
+    const known = job.items.find(it => it.fileKey === key);
+    if (known) { n++; onTick(n, files.length); return { file, item: known, reused: true }; }
     try {
-      return { file, built: await preparePhoto(file) };
+      const built = await preparePhoto(file);
+      const item = {
+        id: built.record.id,
+        fileName: file.name,
+        fileKey: key,
+        record: built.record,
+        paths: Object.fromEntries(built.files.map(f => [f.tier, f.path])),
+        sha: {},
+      };
+      // Bodies first, then the row that references them: a half-written job is
+      // recoverable, a job pointing at blobs that were never stored is not.
+      for (const f of built.files) await UploadStore.putBlob(`${item.id}:${f.tier}`, f.blob);
+      job.items.push(item);
+      await persist();
+      return { file, item };
     } catch (err) {
       console.error(`Encode failed: ${file.name}`, err);
       return { file, error: err };
     } finally {
-      encoded++;
-      setProgress(`Encoding ${encoded}/${total}…`, (encoded / total) * 80);
+      n++;
+      onTick(n, files.length);
     }
   });
+}
 
-  const prepared = results.filter(r => r.built);
-  const failures = results.filter(r => r.error)
-    .map(r => ({ file: r.file.name, error: r.error.message }));
+// ② Upload + commit. Everything already carrying a sha is skipped, so a second
+// call after a failure only pays for what did not land.
+async function publishJob(job, setProgress) {
+  const items = job.items;
+  if (!items.length) return { ok: [] };
 
-  // ② One commit for the batch — renditions *and* manifest rows in the same
-  // tree, so the published site is never half-updated.
-  let committed = [];
-  if (prepared.length) {
-    setProgress(`Uploading ${prepared.length} frame${prepared.length > 1 ? "s" : ""}…`, 85);
-    try {
-      await commitFiles(
-        prepared.flatMap(r => r.built.files),
-        `Add ${prepared.length} photo${prepared.length > 1 ? "s" : ""}`,
-        indexInsertMutator(prepared.map(r => r.built.record))
-      );
-      committed = prepared;
-    } catch (err) {
-      console.error("Batch commit failed:", err);
-      failures.push({ file: `${prepared.length} frame(s)`, error: err.message });
+  const payload = [];
+  for (const item of items) {
+    for (const [tier] of TIERS) {
+      const path = item.paths[tier];
+      if (!path) continue;                       // UPLOAD_NEGATIVE off, no negative tier
+      payload.push({
+        path,
+        sha: item.sha[tier] || null,
+        blobKey: item.sha[tier] ? null : `${item.id}:${tier}`,
+        itemId: item.id,
+        tier,
+      });
     }
   }
 
-  // ③ Drop only what actually landed. A failed frame stays in the queue, so a
-  // retry is one click instead of a trip back to Finder — and the frames that
-  // did commit are never re-encoded or re-uploaded.
-  const landed = new Set(committed.map(r => r.file));
-  batchQueue = batchQueue.filter(f => !landed.has(f));
+  const alreadyThere = payload.filter(p => p.sha).length;
+  setProgress(
+    alreadyThere
+      ? `Resuming — ${alreadyThere}/${payload.length} files already uploaded…`
+      : `Uploading ${items.length} frame${items.length > 1 ? "s" : ""}…`,
+    85
+  );
+
+  await commitFiles(
+    payload,
+    `Add ${items.length} photo${items.length > 1 ? "s" : ""}`,
+    indexInsertMutator(items.map(it => it.record)),
+    {
+      loadBlob: f => UploadStore.getBlob(f.blobKey),
+      onBlobUploaded: async (f, sha) => {
+        const item = job.items.find(it => it.id === f.itemId);
+        if (!item) return;
+        item.sha[f.tier] = sha;
+        await UploadStore.saveJob(job);
+      },
+    }
+  );
+
+  return { ok: items };
+}
+
+// ③ Shared tail: drop the job only once the commit is confirmed, then fix the queue.
+async function finishJob(job, committed, total, setProgress, failures) {
+  // Keep the job unless the commit actually landed. Dropping it on failure would
+  // throw away the encoded blobs and the shas that make a resume cheap — the exact
+  // work this machinery exists to protect.
+  if (committed.length) {
+    await UploadStore.dropJob(job.jobId);
+  } else {
+    await UploadStore.saveJob(job);
+  }
+
+  const landed = new Set(committed.map(it => it.fileKey));
+  batchQueue = batchQueue.filter(f => !landed.has(fileKeyOf(f)));
   renderQueue();
   if (!batchQueue.length) document.getElementById("file-input").value = "";
+  await refreshResumeBanner();
 
   setProgress("", 100);
-  setTimeout(() => progr.classList.add("hidden"), 1500);
-  btnAll.disabled = false;
-  btnOne.disabled = false;
-
   const ok = committed.length;
   const bad = total - ok;
   const base = ok === total
@@ -1893,11 +2130,124 @@ async function uploadAllPhotos() {
     showStatus(base, "success");
   } else {
     const detail = failures.length ? ` — ${friendlyUploadError(failures[0].error)}` : "";
-    const tail = ok ? " The rest are still in the queue." : " Nothing was committed; the queue is intact.";
+    const tail = ok
+      ? " The rest are kept — reopen the Darkroom to resume."
+      : " Nothing was committed; the batch is kept and resumable.";
     showStatus(`${base} (${bad} failed)${detail}.${tail}`, "error");
   }
+}
+
+async function withProgressBar(fn) {
+  const progr = document.getElementById("batch-progress");
+  const progBar = document.getElementById("batch-progress-bar");
+  const progText = document.getElementById("batch-progress-text");
+  const btnAll = document.getElementById("btn-upload-all");
+  const btnOne = document.getElementById("btn-upload-one");
+  progr.classList.remove("hidden");
+  btnAll.disabled = true;
+  btnOne.disabled = true;
+  const setProgress = (text, pct) => {
+    if (text) progText.textContent = text;
+    progBar.style.width = `${Math.round(pct)}%`;
+  };
+  try {
+    await fn(setProgress);
+  } finally {
+    setTimeout(() => progr.classList.add("hidden"), 1500);
+    btnAll.disabled = false;
+    btnOne.disabled = false;
+  }
+}
+
+// Batch upload all files in queue — bounded encode, bounded upload, one commit
+async function uploadAllPhotos() {
+  if (!batchQueue.length) { showStatus("No photos in queue.", "error"); return; }
+  const cfg = getConfig();
+  if (!cfg.owner || !cfg.repo || !cfg.token) { showStatus("Configure GitHub first.", "error"); return; }
+
+  const files = [...batchQueue];
+  const total = files.length;
+  const failures = [];
+
+  await withProgressBar(async setProgress => {
+    const { job, resumed } = await beginJob(files, cfg.branch);
+    const persist = jobWriter(job);
+    if (resumed) showStatus(`Picking up an unfinished batch (${job.items.length} frame(s) already encoded)…`);
+
+    const results = await encodeIntoJob(job, files, persist, (n, all) =>
+      setProgress(`Encoding ${n}/${all}…`, (n / all) * 80));
+
+    for (const r of results) {
+      if (r.error) failures.push({ file: r.file.name, error: r.error.message });
+    }
+
+    let committed = [];
+    if (job.items.length) {
+      try {
+        const out = await publishJob(job, setProgress);
+        committed = out.ok;
+      } catch (err) {
+        console.error("Batch commit failed:", err);
+        failures.push({ file: `${job.items.length} frame(s)`, error: err.message });
+      }
+    }
+
+    await finishJob(job, committed, total, setProgress, failures);
+  });
 
   loadAdminGallery();
+}
+
+// Resume entry point — no File objects needed, the job carries everything.
+async function resumeUpload() {
+  const cfg = getConfig();
+  if (!cfg.owner || !cfg.repo || !cfg.token) { showStatus("Configure GitHub first.", "error"); return; }
+  const job = await UploadStore.pendingJob();
+  if (!job || !job.items.length) { showStatus("Nothing to resume.", "error"); return; }
+  if (job.branch !== cfg.branch) {
+    showStatus(`That batch was started on "${job.branch}" — switch branch back to resume it.`, "error");
+    return;
+  }
+
+  const failures = [];
+  await withProgressBar(async setProgress => {
+    let committed = [];
+    try {
+      const out = await publishJob(job, setProgress);
+      committed = out.ok;
+    } catch (err) {
+      console.error("Resume failed:", err);
+      failures.push({ file: `${job.items.length} frame(s)`, error: err.message });
+    }
+    await finishJob(job, committed, job.items.length, setProgress, failures);
+  });
+
+  loadAdminGallery();
+}
+
+async function discardResume() {
+  const job = await UploadStore.pendingJob();
+  if (job) await UploadStore.dropJob(job.jobId);
+  await refreshResumeBanner();
+  showStatus("Unfinished batch discarded.", "success");
+}
+
+// Show or hide the resume strip. Called on entering the Darkroom and after any
+// upload finishes, so it never advertises a job that no longer exists.
+async function refreshResumeBanner() {
+  const el = document.getElementById("resume-banner");
+  const label = document.getElementById("resume-text");
+  if (!el) return;
+  const job = await UploadStore.pendingJob();
+  if (!job || !job.items.length) { el.classList.add("hidden"); return; }
+  const done = job.items.filter(it => Object.keys(it.sha || {}).length === TIERS.length).length;
+  const when = new Date(job.createdAt).toLocaleString();
+  const bytes = job.items.length;
+  label.textContent =
+    `${bytes} frame${bytes > 1 ? "s" : ""} from ${when} did not finish` +
+    (done ? ` · ${done} already uploaded` : "") +
+    (UploadStore.available ? "" : " · this browser cannot resume after a reload");
+  el.classList.remove("hidden");
 }
 
 /* ── Client-side rendition building ──────────────────────────
@@ -1931,14 +2281,15 @@ async function encodeTier(bitmap, longEdge, quality = 0.82) {
   return blob;
 }
 
-/** Decode once, emit every tier. Returns [{path, b64, w, h}]. */
+/** Decode once, emit every tier. Keeps Blobs rather than base64: a Blob is 33%
+ *  smaller, is what IndexedDB stores, and only needs converting one at a time. */
 async function buildRenditions(file, id) {
   const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
   const out = [];
   try {
     for (const [tier, edge] of TIERS) {
       const blob = await encodeTier(bitmap, edge);
-      out.push({ tier, path: `photos/opt/${id}-${tier}.webp`, b64: await blobToBase64(blob) });
+      out.push({ tier, path: `photos/opt/${id}-${tier}.webp`, blob });
     }
     return { files: out, w: bitmap.width, h: bitmap.height };
   } finally {
@@ -1978,17 +2329,27 @@ function isNonFastForward(err) {
          /fast forward|conflict|already exists|does not match/i.test(err.message || "");
 }
 
-async function commitFiles(files, message, indexMutator = null) {
+async function commitFiles(files, message, indexMutator = null, hooks = {}) {
+  const { onBlobUploaded = null, loadBlob = null } = hooks;
   const { branch } = getConfig();
 
   // ① Upload every blob. A batch holds 3 blobs per frame, so a twenty-frame
   // batch is sixty writes: parallel enough to matter, capped so the rate limiter
   // does not answer with a 403 that looks like a permissions problem.
+  //
+  // An entry that already carries `sha` was uploaded by an earlier attempt and is
+  // skipped outright — a blob sha is derived from its content, so a sha we hold is
+  // proof the bytes are on GitHub. That is what makes resuming cheap rather than a
+  // second full upload. Bodies arrive as Blob, base64 or a lazy loader so a
+  // resumed batch never has all sixty blobs in memory at once.
   const blobs = await pool(files, BLOB_CONCURRENCY, async f => {
+    if (f.sha) return { path: f.path, mode: "100644", type: "blob", sha: f.sha };
+    const body = f.b64 ?? await blobToBase64(f.blob || await loadBlob(f));
     const b = await ghFetch("/git/blobs", {
       method: "POST",
-      body: JSON.stringify({ content: f.b64, encoding: "base64" })
+      body: JSON.stringify({ content: body, encoding: "base64" })
     });
+    if (onBlobUploaded) await onBlobUploaded(f, b.sha);
     return { path: f.path, mode: "100644", type: "blob", sha: b.sha };
   });
 
@@ -2070,7 +2431,7 @@ async function preparePhoto(file) {
 
   if (UPLOAD_NEGATIVE) {
     const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
-    files.push({ tier: "negative", path: `photos/${id}.${ext}`, b64: await fileToBase64(file) });
+    files.push({ tier: "negative", path: `photos/${id}.${ext}`, blob: file });
   }
 
   const year = date.slice(0,4);
@@ -4054,6 +4415,7 @@ document.addEventListener("DOMContentLoaded", () => {
   loadSettings();
   loadTimeline();
   updateEditLayoutBtn();
+  UploadStore.prune().catch(() => {});   // drop batches older than the TTL
 });
 </script>
 <script src="https://cdn.jsdelivr.net/npm/jsmediatags/dist/jsmediatags.min.js"></script>
